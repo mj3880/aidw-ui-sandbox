@@ -32,7 +32,7 @@ corepack enable && corepack prepare pnpm@9.15.9 --activate
 # 1. 依存関係のインストール
 pnpm install
 
-# 2. 開発サーバ起動（http://localhost:3000）
+# 2. 開発サーバ起動（http://localhost:3200）
 pnpm dev
 
 # 3. 本番ビルド（静的書き出し: out/ ディレクトリ）
@@ -55,7 +55,7 @@ FAX確認依頼ワークフローのUXモック。Next.js 14 (App Router, `outpu
 
 ```bash
 pnpm dev
-# http://localhost:3000 を開く → ログイン画面
+# http://localhost:3200 を開く → ログイン画面
 # 任意のメール/パスワードでログイン成立
 ```
 
