@@ -11,10 +11,10 @@ import type {
 } from '@/types/master';
 import { normalizeProductCode } from './product-code-normalizer';
 
-const BASE = '/samples/master';
+const MASTER_CSV_BASE_PATH = '/samples/master';
 
 async function fetchCsv<T extends Record<string, string>>(url: string): Promise<T[]> {
-  const res = await fetch(url, { cache: 'no-store' });
+  const res = await fetch(url);
   if (!res.ok) {
     throw new Error(`Failed to fetch ${url}: ${res.status}`);
   }
@@ -40,11 +40,11 @@ export async function loadMasters(): Promise<Masters> {
     customerPricesRaw,
     productMappingsRaw,
   ] = await Promise.all([
-    fetchCsv<Record<string, string>>(`${BASE}/customers.csv`),
-    fetchCsv<Record<string, string>>(`${BASE}/products.csv`),
-    fetchCsv<Record<string, string>>(`${BASE}/aitera_vegetable_default_prices.csv`),
-    fetchCsv<Record<string, string>>(`${BASE}/customer_prices.csv`),
-    fetchCsv<Record<string, string>>(`${BASE}/customer_product_mappings.csv`),
+    fetchCsv<Record<string, string>>(`${MASTER_CSV_BASE_PATH}/customers.csv`),
+    fetchCsv<Record<string, string>>(`${MASTER_CSV_BASE_PATH}/products.csv`),
+    fetchCsv<Record<string, string>>(`${MASTER_CSV_BASE_PATH}/aitera_vegetable_default_prices.csv`),
+    fetchCsv<Record<string, string>>(`${MASTER_CSV_BASE_PATH}/customer_prices.csv`),
+    fetchCsv<Record<string, string>>(`${MASTER_CSV_BASE_PATH}/customer_product_mappings.csv`),
   ]);
 
   const customers: Customer[] = customersRaw.map((row) => ({

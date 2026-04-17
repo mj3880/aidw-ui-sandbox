@@ -7,7 +7,7 @@ import type { Masters } from '@/types/master';
 import type { FaxRequest, RequestStatus } from '@/types/request';
 import { loadMasters } from '@/lib/master-repository';
 import { loadRequests, persistRequest } from '@/lib/request-repository';
-import type { CurrentUser } from '@/lib/next-fax-selector';
+import type { CurrentUser } from '@/types/auth';
 
 interface AuthState {
   email: string;

@@ -1,14 +1,15 @@
 'use client';
 
 import { cn } from '@/lib/utils';
+import { STATUS_LABEL, type RequestStatus } from '@/types/request';
 
-export type FilterValue = 'all' | 'pending' | 'in_progress' | 'done';
+export type FilterValue = 'all' | RequestStatus;
 
 const ITEMS: { value: FilterValue; label: string }[] = [
   { value: 'all', label: 'すべて' },
-  { value: 'pending', label: '未対応' },
-  { value: 'in_progress', label: '対応中' },
-  { value: 'done', label: '対応済み' },
+  ...(Object.entries(STATUS_LABEL) as [RequestStatus, string][]).map(
+    ([value, label]) => ({ value, label }),
+  ),
 ];
 
 export function StatusFilter({

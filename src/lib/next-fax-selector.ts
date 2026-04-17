@@ -1,9 +1,7 @@
 import type { FaxRequest } from '@/types/request';
+import type { CurrentUser } from '@/types/auth';
 
-export interface CurrentUser {
-  userId: string;
-  teamId: string;
-}
+export type { CurrentUser };
 
 /**
  * Filter FaxRequests visible to the current user (assignee scope).
@@ -14,7 +12,7 @@ export function filterByAssigneeScope(
   user: CurrentUser,
 ): FaxRequest[] {
   return requests.filter(
-    (r) => r.assigneeName === user.userId || r.assigneeTeamId === user.teamId,
+    (r) => r.assigneeUserId === user.userId || r.assigneeTeamId === user.teamId,
   );
 }
 

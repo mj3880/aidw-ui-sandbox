@@ -110,27 +110,27 @@ const requests = faxFiles.map((file, idx) => {
   const status = statuses[idx];
   const assigneeKind = assigneePlan[idx];
 
-  let assigneeName = null;
+  let assigneeUserId = null;
   let assigneeTeamId = null;
   if (assigneeKind === 'self') {
-    assigneeName = SELF_USER;
+    assigneeUserId = SELF_USER;
     assigneeTeamId = null;
   } else if (assigneeKind === 'selfteam') {
-    assigneeName = null;
+    assigneeUserId = null;
     assigneeTeamId = SELF_TEAM;
   } else {
     if (rand() < 0.5) {
-      assigneeName = pick(OTHER_USERS);
+      assigneeUserId = pick(OTHER_USERS);
       assigneeTeamId = null;
     } else {
-      assigneeName = null;
+      assigneeUserId = null;
       assigneeTeamId = pick(OTHER_TEAMS);
     }
   }
 
-  // Override: done/in_progress should also have a concrete assigneeName for display.
-  if ((status === 'done' || status === 'in_progress') && !assigneeName) {
-    assigneeName = assigneeKind === 'selfteam' ? SELF_USER : pick(OTHER_USERS);
+  // Override: done/in_progress should also have a concrete user assignee for display.
+  if ((status === 'done' || status === 'in_progress') && !assigneeUserId) {
+    assigneeUserId = assigneeKind === 'selfteam' ? SELF_USER : pick(OTHER_USERS);
   }
 
   const receivedOffset = Math.floor(rand() * SEVEN_DAYS);
@@ -172,7 +172,7 @@ const requests = faxFiles.map((file, idx) => {
     orderDate,
     deliveryDate,
     status,
-    assigneeName,
+    assigneeUserId,
     assigneeTeamId,
     lineItems,
   };

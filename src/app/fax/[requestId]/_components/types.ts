@@ -1,6 +1,6 @@
 import type { FaxRequest, LineItem } from '@/types/request';
 
-export type StepKey = 'step1' | 'step2' | 'step3' | 'step4' | 'step5';
+export type StepKey = 'step1' | 'step2' | 'step3' | 'step5';
 
 export type Mode = 'edit' | 'view';
 

@@ -3,6 +3,24 @@ import type { FaxRequest } from '@/types/request';
 const URL_PATH = '/samples/requests/requests.json';
 const LS_PREFIX = 'aidw-ui-mock:requests:';
 
+/**
+ * Fields that the user can edit at runtime and that are safe to override
+ * via localStorage. Identity/source-of-truth fields (requestId, pdfFile,
+ * receivedAt, orderDate, deliveryDate) are intentionally NOT in this list
+ * so a tampered localStorage entry cannot redirect <Document file=...> to
+ * an arbitrary URL or relative path.
+ */
+const OVERRIDABLE_FIELDS = [
+  'status',
+  'customerId',
+  'deliveryLocation',
+  'assigneeUserId',
+  'assigneeTeamId',
+  'lineItems',
+] as const satisfies readonly (keyof FaxRequest)[];
+
+type OverridableKey = (typeof OVERRIDABLE_FIELDS)[number];
+
 export async function loadRequests(): Promise<FaxRequest[]> {
   const res = await fetch(URL_PATH, { cache: 'no-store' });
   if (!res.ok) {
@@ -12,6 +30,20 @@ export async function loadRequests(): Promise<FaxRequest[]> {
   return mergeWithLocalStorage(base);
 }
 
+function pickOverridable(raw: unknown): Partial<FaxRequest> {
+  if (!raw || typeof raw !== 'object') return {};
+  const source = raw as Record<string, unknown>;
+  const out: Partial<FaxRequest> = {};
+  for (const key of OVERRIDABLE_FIELDS) {
+    if (key in source) {
+      // Cast is safe: only whitelisted keys are copied. Runtime shape
+      // validation is intentionally light for this prototype.
+      (out as Record<OverridableKey, unknown>)[key] = source[key];
+    }
+  }
+  return out;
+}
+
 function mergeWithLocalStorage(base: FaxRequest[]): FaxRequest[] {
   if (typeof window === 'undefined') return base;
   return base.map((req) => {
@@ -19,7 +51,7 @@ function mergeWithLocalStorage(base: FaxRequest[]): FaxRequest[] {
     try {
       const raw = window.localStorage.getItem(key);
       if (!raw) return req;
-      const override = JSON.parse(raw) as Partial<FaxRequest>;
+      const override = pickOverridable(JSON.parse(raw));
       return { ...req, ...override };
     } catch (e) {
       console.warn(`request-repository: corrupted entry for ${req.requestId}, removing`, e);

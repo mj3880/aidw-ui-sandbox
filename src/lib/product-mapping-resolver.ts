@@ -22,10 +22,11 @@ export function resolveProductCandidates(
   const out: RankedProduct[] = [];
   const seenCodes = new Set<string>();
   const norm = normalizeForSearch(query);
+  const productMap = new Map(products.map((p) => [p.productCode, p]));
 
   function pushIfNew(productCode: string, source: RankedProduct['source']) {
     if (seenCodes.has(productCode)) return;
-    const product = products.find((p) => p.productCode === productCode);
+    const product = productMap.get(productCode);
     if (!product) return;
     seenCodes.add(productCode);
     out.push({ product, source });

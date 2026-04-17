@@ -18,7 +18,7 @@ export interface FaxRequest {
   orderDate: string; // YYYY-MM-DD
   deliveryDate: string; // YYYY-MM-DD
   status: RequestStatus;
-  assigneeName: string | null;
+  assigneeUserId: string | null;
   assigneeTeamId: string | null;
   lineItems: LineItem[];
 }

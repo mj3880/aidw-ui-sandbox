@@ -19,8 +19,10 @@ export function RequestCard({
 }) {
   const router = useRouter();
   const updateStatus = useStore((s) => s.updateRequestStatus);
+  const auth = useStore((s) => s.auth);
 
   const customerName = masters ? getCustomerName(masters, request.customerId) : request.customerId;
+  const assigneeDisplay = formatAssignee(request.assigneeUserId, request.assigneeTeamId, auth?.user.userId);
 
   const handleClick = () => {
     console.info('RequestCard.handleClick', request.requestId, request.status);
@@ -64,12 +66,22 @@ export function RequestCard({
         <dt className="text-slate-400">明細数</dt>
         <dd>{request.lineItems.length}件</dd>
         <dt className="text-slate-400">対応者</dt>
-        <dd>
-          {request.status === 'pending'
-            ? '-'
-            : request.assigneeName ?? (request.assigneeTeamId ? `${request.assigneeTeamId}（チーム）` : '-')}
-        </dd>
+        <dd>{request.status === 'pending' ? '-' : assigneeDisplay}</dd>
       </dl>
     </button>
   );
+}
+
+/** Derive a short human-readable assignee label from userId/teamId. */
+function formatAssignee(
+  assigneeUserId: string | null,
+  assigneeTeamId: string | null,
+  selfUserId: string | undefined,
+): string {
+  if (assigneeUserId) {
+    if (selfUserId && assigneeUserId === selfUserId) return '自分';
+    return assigneeUserId;
+  }
+  if (assigneeTeamId) return `${assigneeTeamId}（チーム）`;
+  return '-';
 }

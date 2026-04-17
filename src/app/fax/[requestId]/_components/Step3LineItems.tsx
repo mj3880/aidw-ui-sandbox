@@ -34,7 +34,6 @@ const ALL_FIELD_LABELS = [
 ];
 
 export function Step3LineItems({ draft, setDraft, onBack, onConfirm, mode }: Props) {
-  const masters = useStore((s) => s.masters);
   const [showAll, setShowAll] = useState(false);
 
   const visibleItems = useMemo(() => {
@@ -108,148 +107,153 @@ export function Step3LineItems({ draft, setDraft, onBack, onConfirm, mode }: Pro
       )}
     </div>
   );
+}
 
-  function LineItemRow({
-    item,
-    customerId,
-    mode,
-    showAllFields,
-    onUpdate,
-    indexLabel,
-  }: {
-    item: LineItem;
-    customerId: string;
-    mode: Mode;
-    showAllFields: boolean;
-    onUpdate: (patch: Partial<LineItem>) => void;
-    indexLabel: string;
-  }) {
-    const [productQuery, setProductQuery] = useState('');
+interface LineItemRowProps {
+  item: LineItem;
+  customerId: string;
+  mode: Mode;
+  showAllFields: boolean;
+  onUpdate: (patch: Partial<LineItem>) => void;
+  indexLabel: string;
+}
 
-    const expected = useMemo(() => {
-      if (!masters) return null;
-      return computeExpectedPrice(
-        customerId,
-        item.productCode,
-        masters.customerPrices,
-        masters.defaultPrices,
-      );
-    }, [customerId, item.productCode]);
+function LineItemRow({
+  item,
+  customerId,
+  mode,
+  showAllFields,
+  onUpdate,
+  indexLabel,
+}: LineItemRowProps) {
+  const masters = useStore((s) => s.masters);
+  const [productQuery, setProductQuery] = useState('');
 
-    const diffLevel = expected ? classifyDiff(item.unitPrice, expected.expectedPrice) : 'unknown';
+  const expected = useMemo(() => {
+    if (!masters) return null;
+    return computeExpectedPrice(
+      customerId,
+      item.productCode,
+      masters.customerPrices,
+      masters.defaultPrices,
+    );
+  }, [customerId, item.productCode, masters]);
 
-    const productOptions: ComboboxOption[] = useMemo(() => {
-      if (!masters) return [];
-      const ranked = resolveProductCandidates(
-        productQuery,
-        customerId,
-        masters.products,
-        masters.productMappings,
-        50,
-      );
-      return ranked.map(({ product, source }) => ({
-        value: product.productCode,
-        label: product.productName,
-        sublabel: `${product.productCode} / ${product.origin || '-'}`,
-        badge:
-          source === 'customer-manual' || source === 'customer-auto'
-            ? '取引先別'
-            : source === 'generic-manual' || source === 'generic-auto'
-            ? '汎用'
-            : undefined,
-      }));
-    }, [productQuery, customerId]);
+  const diffLevel = expected ? classifyDiff(item.unitPrice, expected.expectedPrice) : 'unknown';
 
-    return (
-      <li
-        className={cn(
-          'rounded-md border bg-white p-3 space-y-2',
-          item.isLowConfidence ? 'bg-yellow-50 border-l-4 border-yellow-500 border-r border-y border-r-slate-200 border-y-slate-200' : 'border-slate-200',
+  const productOptions: ComboboxOption[] = useMemo(() => {
+    if (!masters) return [];
+    const ranked = resolveProductCandidates(
+      productQuery,
+      customerId,
+      masters.products,
+      masters.productMappings,
+      50,
+    );
+    return ranked.map(({ product, source }) => ({
+      value: product.productCode,
+      label: product.productName,
+      sublabel: `${product.productCode} / ${product.origin || '-'}`,
+      badge:
+        source === 'customer-manual' || source === 'customer-auto'
+          ? '取引先別'
+          : source === 'generic-manual' || source === 'generic-auto'
+          ? '汎用'
+          : undefined,
+    }));
+  }, [productQuery, customerId, masters]);
+
+  return (
+    <li
+      className={cn(
+        'rounded-md border bg-white p-3 space-y-2',
+        item.isLowConfidence
+          ? 'bg-yellow-50 border border-slate-200 border-l-4 border-l-yellow-500'
+          : 'border-slate-200',
+      )}
+    >
+      <div className="flex items-center justify-between">
+        <div className="text-xs font-semibold text-slate-500">{indexLabel}</div>
+        {item.isLowConfidence && (
+          <span className="inline-flex items-center rounded bg-yellow-200 text-yellow-900 text-[10px] font-semibold px-1.5 py-0.5">
+            低信頼度
+          </span>
         )}
-      >
-        <div className="flex items-center justify-between">
-          <div className="text-xs font-semibold text-slate-500">{indexLabel}</div>
-          {item.isLowConfidence && (
-            <span className="inline-flex items-center rounded bg-yellow-200 text-yellow-900 text-[10px] font-semibold px-1.5 py-0.5">
-              低信頼度
-            </span>
+      </div>
+
+      <div className="grid grid-cols-12 gap-2 items-start">
+        <div className="col-span-6">
+          <label className="block text-[11px] text-slate-500 mb-0.5">商品</label>
+          {showAllFields || mode === 'edit' ? (
+            <SearchCombobox
+              value={item.productCode}
+              onChange={(v) =>
+                onUpdate({
+                  productCode: v,
+                  productName:
+                    masters?.products.find((p) => p.productCode === v)?.productName ??
+                    item.productName,
+                })
+              }
+              options={productOptions}
+              placeholder="商品名 / コードで検索"
+              disabled={mode === 'view'}
+              onQueryChange={setProductQuery}
+            />
+          ) : (
+            <div className="text-sm font-medium">
+              {item.productName}
+              <span className="ml-2 text-xs text-slate-400">({item.productCode})</span>
+            </div>
           )}
         </div>
-
-        <div className="grid grid-cols-12 gap-2 items-start">
-          <div className="col-span-6">
-            <label className="block text-[11px] text-slate-500 mb-0.5">商品</label>
-            {showAllFields || mode === 'edit' ? (
-              <SearchCombobox
-                value={item.productCode}
-                onChange={(v) =>
-                  onUpdate({
-                    productCode: v,
-                    productName:
-                      masters?.products.find((p) => p.productCode === v)?.productName ??
-                      item.productName,
-                  })
-                }
-                options={productOptions}
-                placeholder="商品名 / コードで検索"
-                disabled={mode === 'view'}
-                onQueryChange={setProductQuery}
-              />
-            ) : (
-              <div className="text-sm font-medium">
-                {item.productName}
-                <span className="ml-2 text-xs text-slate-400">({item.productCode})</span>
-              </div>
+        <div className="col-span-2">
+          <label className="block text-[11px] text-slate-500 mb-0.5">個数</label>
+          <input
+            type="number"
+            value={item.quantity}
+            disabled={mode === 'view'}
+            onChange={(e) => onUpdate({ quantity: Number(e.target.value) || 0 })}
+            className="w-full rounded border border-slate-300 px-2 py-1.5 text-sm text-right disabled:bg-slate-50"
+          />
+        </div>
+        <div className="col-span-4">
+          <label className="block text-[11px] text-slate-500 mb-0.5">単価</label>
+          <input
+            type="number"
+            value={item.unitPrice}
+            disabled={mode === 'view'}
+            onChange={(e) => onUpdate({ unitPrice: Number(e.target.value) || 0 })}
+            className={cn(
+              'w-full rounded border px-2 py-1.5 text-sm text-right disabled:bg-slate-50',
+              diffLevel === 'error' ? 'bg-red-50 border-red-300' : '',
+              diffLevel === 'warning' ? 'bg-yellow-50 border-yellow-300' : '',
+              diffLevel === 'ok' || diffLevel === 'unknown' ? 'border-slate-300' : '',
             )}
-          </div>
-          <div className="col-span-2">
-            <label className="block text-[11px] text-slate-500 mb-0.5">個数</label>
-            <input
-              type="number"
-              value={item.quantity}
-              disabled={mode === 'view'}
-              onChange={(e) => onUpdate({ quantity: Number(e.target.value) || 0 })}
-              className="w-full rounded border border-slate-300 px-2 py-1.5 text-sm text-right disabled:bg-slate-50"
-            />
-          </div>
-          <div className="col-span-4">
-            <label className="block text-[11px] text-slate-500 mb-0.5">単価</label>
-            <input
-              type="number"
-              value={item.unitPrice}
-              disabled={mode === 'view'}
-              onChange={(e) => onUpdate({ unitPrice: Number(e.target.value) || 0 })}
-              className={cn(
-                'w-full rounded border px-2 py-1.5 text-sm text-right disabled:bg-slate-50',
-                diffLevel === 'error' ? 'bg-red-50 border-red-300' : '',
-                diffLevel === 'warning' ? 'bg-yellow-50 border-yellow-300' : '',
-                diffLevel === 'ok' || diffLevel === 'unknown' ? 'border-slate-300' : '',
-              )}
-            />
+          />
+        </div>
+      </div>
+
+      <div className="flex items-center justify-between text-xs text-slate-600">
+        <div className="text-slate-500">
+          小計: <span className="text-slate-900 font-semibold">{formatYen(item.unitPrice * item.quantity)}</span>
+        </div>
+        {expected && <PriceDiffBadge level={diffLevel} expected={expected} actual={item.unitPrice} />}
+      </div>
+
+      {showAllFields && (
+        <div className="mt-2 pt-2 border-t border-slate-100">
+          <div className="text-[11px] text-slate-400 mb-1">詳細12項目（読み取り専用）</div>
+          <div className="grid grid-cols-3 gap-x-3 gap-y-1 text-[11px]">
+            {ALL_FIELD_LABELS.map((label) => (
+              <div key={label} className="flex justify-between">
+                <span className="text-slate-500">{label}</span>
+                <span className="text-slate-700">-</span>
+              </div>
+            ))}
           </div>
         </div>
-
-        <div className="flex items-center justify-between text-xs text-slate-600">
-          <div className="text-slate-500">
-            小計: <span className="text-slate-900 font-semibold">{formatYen(item.unitPrice * item.quantity)}</span>
-          </div>
-          {expected && <PriceDiffBadge level={diffLevel} expected={expected} actual={item.unitPrice} />}
-        </div>
-
-        {showAllFields && (
-          <div className="mt-2 pt-2 border-t border-slate-100">
-            <div className="text-[11px] text-slate-400 mb-1">詳細12項目（読み取り専用）</div>
-            <div className="grid grid-cols-3 gap-x-3 gap-y-1 text-[11px]">
-              {ALL_FIELD_LABELS.map((label) => (
-                <div key={label} className="flex justify-between">
-                  <span className="text-slate-500">{label}</span>
-                  <span className="text-slate-700">-</span>
-                </div>
-              ))}
-            </div>
-          </div>
-        )}
-      </li>
-    );
-  }
+      )}
+    </li>
+  );
 }
