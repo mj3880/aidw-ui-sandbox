@@ -1,8 +1,8 @@
 'use client';
 
-import { useCallback, useEffect, useRef, useState } from 'react';
+import { memo, useCallback, useEffect, useLayoutEffect, useRef, useState } from 'react';
 import dynamic from 'next/dynamic';
-import { AlertTriangle, Maximize2, Minus, Plus, RotateCcw, RotateCw } from 'lucide-react';
+import { AlertTriangle, Minus, Plus, RotateCcw, RotateCw } from 'lucide-react';
 
 // Dynamically load react-pdf to avoid SSR issues.
 const Document = dynamic(() => import('react-pdf').then((m) => m.Document), { ssr: false });
@@ -27,6 +27,29 @@ const SCALE_STEP = 0.25;
 const clampScale = (value: number): number =>
   Math.min(SCALE_MAX, Math.max(SCALE_MIN, Math.round(value * 100) / 100));
 
+// ネスト三項演算子を避けるため if 分岐で実装
+const resolveCursorClass = (pan: boolean, dragging: boolean): string => {
+  if (!pan) return '';
+  return dragging ? 'cursor-grabbing' : 'cursor-grab';
+};
+
+// scale 変更以外で PDF ページを再ラスタライズさせないための memo 分離
+interface MemoizedPageProps {
+  pageNumber: number;
+  width: number;
+}
+
+const MemoizedPage = memo(function MemoizedPage({ pageNumber, width }: MemoizedPageProps) {
+  return (
+    <Page
+      pageNumber={pageNumber}
+      width={width}
+      renderAnnotationLayer={false}
+      renderTextLayer={false}
+    />
+  );
+});
+
 export function PdfPane({ pdfUrl }: Props) {
   const [numPages, setNumPages] = useState<number | null>(null);
   const [error, setError] = useState<string | null>(null);
@@ -37,10 +60,20 @@ export function PdfPane({ pdfUrl }: Props) {
   const [offset, setOffset] = useState<{ x: number; y: number }>({ x: 0, y: 0 });
   const [isDragging, setIsDragging] = useState<boolean>(false);
 
-  const dragStartRef = useRef<{ x: number; y: number; offsetX: number; offsetY: number } | null>(
-    null,
-  );
+  const dragStartRef = useRef<{
+    x: number;
+    y: number;
+    startPanX: number;
+    startPanY: number;
+  } | null>(null);
   const viewportRef = useRef<HTMLDivElement | null>(null);
+  // ドラッグ中の transform を DOM に直接書き込むための参照
+  const transformRef = useRef<HTMLDivElement | null>(null);
+  // useCallback 依存配列に offset を含めず最新値を参照するための安定 ref
+  const latestOffsetRef = useRef(offset);
+  useLayoutEffect(() => {
+    latestOffsetRef.current = offset;
+  }, [offset]);
 
   useEffect(() => {
     void configureWorker();
@@ -48,12 +81,24 @@ export function PdfPane({ pdfUrl }: Props) {
 
   useEffect(() => {
     const measure = () => {
-      const el = document.getElementById('pdf-pane-host');
+      const el = viewportRef.current;
       if (el) setWidth(Math.max(300, el.clientWidth - 32));
     };
     measure();
-    window.addEventListener('resize', measure);
-    return () => window.removeEventListener('resize', measure);
+
+    let rafId: number | null = null;
+    const onResize = () => {
+      if (rafId !== null) return;
+      rafId = requestAnimationFrame(() => {
+        rafId = null;
+        measure();
+      });
+    };
+    window.addEventListener('resize', onResize);
+    return () => {
+      window.removeEventListener('resize', onResize);
+      if (rafId !== null) cancelAnimationFrame(rafId);
+    };
   }, []);
 
   useEffect(() => {
@@ -97,15 +142,16 @@ export function PdfPane({ pdfUrl }: Props) {
       // 左クリックのみ
       if (e.button !== 0) return;
       e.currentTarget.setPointerCapture(e.pointerId);
+      const current = latestOffsetRef.current;
       dragStartRef.current = {
         x: e.clientX,
         y: e.clientY,
-        offsetX: offset.x,
-        offsetY: offset.y,
+        startPanX: current.x,
+        startPanY: current.y,
       };
       setIsDragging(true);
     },
-    [scale, offset.x, offset.y],
+    [scale],
   );
 
   const handlePointerMove = useCallback((e: React.PointerEvent<HTMLDivElement>) => {
@@ -113,20 +159,32 @@ export function PdfPane({ pdfUrl }: Props) {
     if (!start) return;
     const dx = e.clientX - start.x;
     const dy = e.clientY - start.y;
-    setOffset({ x: start.offsetX + dx, y: start.offsetY + dy });
+    // ドラッグ中は state を更新せず、DOMに直接 transform を適用して再レンダを避ける
+    const el = transformRef.current;
+    if (el) {
+      el.style.transform = `translate(${start.startPanX + dx}px, ${start.startPanY + dy}px)`;
+    }
   }, []);
 
-  const endDrag = useCallback((e: React.PointerEvent<HTMLDivElement>) => {
-    if (!dragStartRef.current) return;
+  const handlePointerUp = useCallback((e: React.PointerEvent<HTMLDivElement>) => {
+    const start = dragStartRef.current;
+    if (!start) return;
     if (e.currentTarget.hasPointerCapture(e.pointerId)) {
       e.currentTarget.releasePointerCapture(e.pointerId);
     }
+    // 最終位置を state に同期（以降の通常レンダで transform が維持される）
+    const dx = e.clientX - start.x;
+    const dy = e.clientY - start.y;
+    if (transformRef.current) {
+      transformRef.current.style.transform = '';
+    }
+    setOffset({ x: start.startPanX + dx, y: start.startPanY + dy });
     dragStartRef.current = null;
     setIsDragging(false);
   }, []);
 
   const panEnabled = scale > 1.0;
-  const cursorClass = !panEnabled ? '' : isDragging ? 'cursor-grabbing' : 'cursor-grab';
+  const cursorClass = resolveCursorClass(panEnabled, isDragging);
 
   const scalePercent = Math.round(scale * 100);
   const canZoomIn = scale < SCALE_MAX;
@@ -134,7 +192,6 @@ export function PdfPane({ pdfUrl }: Props) {
 
   return (
     <div
-      id="pdf-pane-host"
       ref={viewportRef}
       className="relative h-full w-full overflow-auto bg-slate-100"
     >
@@ -173,18 +230,9 @@ export function PdfPane({ pdfUrl }: Props) {
           <RotateCcw className="size-3" />
           100%
         </button>
-        <button
-          type="button"
-          onClick={resetView}
-          aria-label="幅に合わせる"
-          className="inline-flex items-center gap-1 rounded border border-slate-300 bg-white px-2 py-1.5 text-xs text-slate-700 hover:bg-slate-50"
-        >
-          <Maximize2 className="size-3" />
-          幅に合わせる
-        </button>
       </div>
 
-      <div className={`p-4 ${cursorClass}`.trim()}>
+      <div className={['p-4', cursorClass].filter(Boolean).join(' ')}>
         {error ? (
           <div className="flex flex-col items-center justify-center text-center gap-3 p-8 bg-white border border-red-200 rounded-md">
             <AlertTriangle className="size-8 text-red-500" />
@@ -201,10 +249,11 @@ export function PdfPane({ pdfUrl }: Props) {
           </div>
         ) : (
           <div
+            ref={transformRef}
             onPointerDown={handlePointerDown}
             onPointerMove={handlePointerMove}
-            onPointerUp={endDrag}
-            onPointerCancel={endDrag}
+            onPointerUp={handlePointerUp}
+            onPointerCancel={handlePointerUp}
             style={{
               transform: `translate(${offset.x}px, ${offset.y}px)`,
               transformOrigin: '0 0',
@@ -228,13 +277,7 @@ export function PdfPane({ pdfUrl }: Props) {
                   key={`page_${i + 1}`}
                   className="mb-3 shadow bg-white inline-block"
                 >
-                  <Page
-                    pageNumber={i + 1}
-                    width={width}
-                    scale={scale}
-                    renderAnnotationLayer={false}
-                    renderTextLayer={false}
-                  />
+                  <MemoizedPage pageNumber={i + 1} width={width * scale} />
                 </div>
               ))}
             </Document>
