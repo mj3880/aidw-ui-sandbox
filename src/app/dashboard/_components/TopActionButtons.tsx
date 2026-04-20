@@ -67,11 +67,16 @@ export function TopActionButtons() {
               <div style={{ fontSize: 15, fontWeight: 600, letterSpacing: '-0.01em' }}>
                 {a.label}
               </div>
-              {a.caption && (
-                <div style={{ fontSize: 12, marginTop: 4, opacity: a.accent ? 0.9 : 0.65 }}>
-                  {a.caption}
-                </div>
-              )}
+              <div
+                style={{
+                  fontSize: 12,
+                  marginTop: 4,
+                  opacity: a.accent ? 0.9 : 0.65,
+                  minHeight: 18,
+                }}
+              >
+                {a.caption ?? '\u00A0'}
+              </div>
             </div>
           </div>
         );
