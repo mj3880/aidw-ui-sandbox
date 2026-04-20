@@ -14,5 +14,9 @@ export function generateStaticParams() {
 export const dynamicParams = false;
 
 export default function FaxDetailPage({ params }: { params: { requestId: string } }) {
-  return <FaxDetailClient requestId={params.requestId} />;
+  // requestId 変更時に FaxDetailClient を強制再マウントし、step/draft/PdfPane 等の
+  // 状態を完全にリセットする。同一動的セグメント間の soft 遷移ではコンポーネントが
+  // 再利用されるため、key 指定がないと前依頼の Step5 完了画面・古い draft・前 PDF
+  // ドキュメントの後始末競合が新依頼ページに残り、react-pdf 由来の TypeError を招く。
+  return <FaxDetailClient key={params.requestId} requestId={params.requestId} />;
 }
