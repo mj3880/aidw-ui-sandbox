@@ -15,6 +15,8 @@ const SORT_OPTIONS: { value: SortKey; label: string }[] = [
   { value: 'receivedAt', label: '受信日時' },
 ];
 
+const isSortKey = (v: string): v is SortKey => SORT_OPTIONS.some((o) => o.value === v);
+
 export default function FaxListPage() {
   const requests = useStore((s) => s.requests);
   const masters = useStore((s) => s.masters);
@@ -24,11 +26,11 @@ export default function FaxListPage() {
 
   const filtered = useMemo(() => {
     const list = filter === 'all' ? requests : requests.filter((r) => r.status === filter);
-    return [...list].sort((a, b) => {
-      const av = a[sortKey];
-      const bv = b[sortKey];
-      return sortOrder === 'asc' ? av.localeCompare(bv) : bv.localeCompare(av);
-    });
+    return [...list].sort((a, b) =>
+      sortOrder === 'asc'
+        ? a[sortKey].localeCompare(b[sortKey])
+        : b[sortKey].localeCompare(a[sortKey]),
+    );
   }, [requests, filter, sortKey, sortOrder]);
 
   return (
@@ -41,10 +43,14 @@ export default function FaxListPage() {
         <div className="flex items-center gap-3 flex-wrap">
           <StatusFilter value={filter} onChange={setFilter} />
           <div className="inline-flex items-center gap-2 rounded-md border border-slate-200 bg-white px-2 py-1 shadow-sm">
-            <label className="text-xs text-slate-500">並び順</label>
+            <label htmlFor="fax-sort-key" className="text-xs text-slate-500">並び順</label>
             <select
+              id="fax-sort-key"
               value={sortKey}
-              onChange={(e) => setSortKey(e.target.value as SortKey)}
+              onChange={(e) => {
+                const v = e.target.value;
+                if (isSortKey(v)) setSortKey(v);
+              }}
               className="text-sm bg-transparent focus:outline-none"
             >
               {SORT_OPTIONS.map((o) => (
