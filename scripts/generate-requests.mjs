@@ -137,7 +137,10 @@ const requests = faxFiles.map((file, idx) => {
   const receivedAt = new Date(NOW - receivedOffset).toISOString();
   const orderDate = new Date(NOW - receivedOffset - randInt(0, 2) * 86400000)
     .toISOString().slice(0, 10);
-  const deliveryDate = new Date(NOW - receivedOffset + randInt(1, 5) * 86400000)
+  const deliveryOffsetMs = NOW - receivedOffset + randInt(1, 5) * 86400000;
+  const deliveryDate = new Date(deliveryOffsetMs).toISOString().slice(0, 10);
+  // arrivalDate: deliveryDateの1〜2日前
+  const arrivalDate = new Date(deliveryOffsetMs - randInt(1, 2) * 86400000)
     .toISOString().slice(0, 10);
 
   // 1〜10 line items
@@ -171,6 +174,7 @@ const requests = faxFiles.map((file, idx) => {
     receivedAt,
     orderDate,
     deliveryDate,
+    arrivalDate,
     status,
     assigneeUserId,
     assigneeTeamId,

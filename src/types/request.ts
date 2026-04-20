@@ -17,6 +17,7 @@ export interface FaxRequest {
   receivedAt: string; // ISO8601
   orderDate: string; // YYYY-MM-DD
   deliveryDate: string; // YYYY-MM-DD
+  arrivalDate: string; // YYYY-MM-DD 拠点着日（deliveryDateの1〜2日前）
   status: RequestStatus;
   assigneeUserId: string | null;
   assigneeTeamId: string | null;

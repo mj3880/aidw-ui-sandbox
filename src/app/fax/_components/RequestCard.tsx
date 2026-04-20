@@ -23,6 +23,7 @@ export function RequestCard({
 
   const customerName = masters ? getCustomerName(masters, request.customerId) : request.customerId;
   const assigneeDisplay = formatAssignee(request.assigneeUserId, request.assigneeTeamId, auth?.user.userId);
+  const lowConfidenceCount = request.lineItems.filter((l) => l.isLowConfidence).length;
 
   const handleClick = () => {
     console.info('RequestCard.handleClick', request.requestId, request.status);
@@ -42,31 +43,47 @@ export function RequestCard({
         request.status === 'pending' ? 'border-slate-200 hover:border-blue-400' : 'border-slate-200',
       )}
     >
-      <div className="flex items-start justify-between mb-2">
+      <div className="flex items-center gap-3 mb-1">
         <span
           className={cn(
-            'inline-flex items-center rounded px-2 py-0.5 text-[11px] font-semibold',
+            'inline-flex items-center rounded-full px-3 py-1 text-xs font-semibold whitespace-nowrap',
             STATUS_BADGE_CLASS[request.status],
           )}
         >
           {STATUS_LABEL[request.status]}
         </span>
-        <span className="text-[11px] text-slate-400">{request.requestId}</span>
+        <div className="text-lg font-bold text-slate-900 truncate" title={customerName}>
+          {customerName}
+        </div>
       </div>
-      <div className="text-sm font-semibold text-slate-900 truncate" title={customerName}>
-        {customerName}
+      <div className="text-xs text-slate-500 mb-3 truncate" title={request.deliveryLocation}>
+        {request.deliveryLocation}
       </div>
-      <dl className="mt-2 grid grid-cols-2 gap-y-1 text-xs text-slate-600">
-        <dt className="text-slate-400">受注日付</dt>
-        <dd>{request.orderDate}</dd>
-        <dt className="text-slate-400">受信時刻</dt>
-        <dd>{formatDateTime(request.receivedAt)}</dd>
-        <dt className="text-slate-400">荷渡日</dt>
-        <dd>{request.deliveryDate}</dd>
-        <dt className="text-slate-400">明細数</dt>
-        <dd>{request.lineItems.length}件</dd>
-        <dt className="text-slate-400">対応者</dt>
-        <dd>{request.status === 'pending' ? '-' : assigneeDisplay}</dd>
+      <dl className="grid grid-cols-2 gap-x-4 gap-y-2 text-xs text-slate-700">
+        <div className="flex items-center gap-2">
+          <dt className="inline-block bg-slate-200 text-slate-700 text-xs px-2 py-1 rounded">納入日</dt>
+          <dd>{request.deliveryDate}</dd>
+        </div>
+        <div className="flex items-center gap-2">
+          <dt className="inline-block bg-slate-200 text-slate-700 text-xs px-2 py-1 rounded">受信日時</dt>
+          <dd>{formatDateTime(request.receivedAt)}</dd>
+        </div>
+        <div className="flex items-center gap-2">
+          <dt className="inline-block bg-slate-200 text-slate-700 text-xs px-2 py-1 rounded">拠点着日</dt>
+          <dd>{request.arrivalDate}</dd>
+        </div>
+        <div className="flex items-center gap-2">
+          <dt className="inline-block bg-slate-200 text-slate-700 text-xs px-2 py-1 rounded">対応者</dt>
+          <dd>{request.status === 'pending' ? '-' : assigneeDisplay}</dd>
+        </div>
+        <div className="flex items-center gap-2">
+          <dt className="inline-block bg-slate-200 text-slate-700 text-xs px-2 py-1 rounded">明細</dt>
+          <dd>{request.lineItems.length}件</dd>
+        </div>
+        <div className="flex items-center gap-2">
+          <dt className="inline-block bg-slate-200 text-slate-700 text-xs px-2 py-1 rounded">要確認明細</dt>
+          <dd>{lowConfidenceCount}件</dd>
+        </div>
       </dl>
     </button>
   );
