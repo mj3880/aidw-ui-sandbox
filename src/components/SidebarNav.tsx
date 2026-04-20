@@ -11,6 +11,7 @@ import {
   ShoppingCart,
   Database,
   Settings,
+  PanelLeftClose,
 } from 'lucide-react';
 
 interface NavItem {
@@ -32,6 +33,7 @@ export function SidebarNav() {
   const pathname = usePathname();
   const router = useRouter();
   const auth = useStore((s) => s.auth);
+  const toggleSidebar = useStore((s) => s.toggleSidebar);
 
   const displayName = auth?.email?.split('@')[0] ?? 'guest';
   const initial = displayName.charAt(0).toUpperCase();
@@ -40,10 +42,18 @@ export function SidebarNav() {
     <aside className="sidebar">
       <div className="sidebar-brand">
         <div className="logo">AI</div>
-        <div>
+        <div className="sidebar-brand-text">
           <div className="name">AIDW Console</div>
           <div className="sub">HITL Confirmation</div>
         </div>
+        <button
+          type="button"
+          className="sidebar-collapse-btn"
+          aria-label="サイドバーを閉じる"
+          onClick={toggleSidebar}
+        >
+          <PanelLeftClose />
+        </button>
       </div>
       <nav className="sidebar-nav">
         <div className="sidebar-section">業務</div>

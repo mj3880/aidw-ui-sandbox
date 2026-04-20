@@ -23,6 +23,7 @@ interface StoreState {
   requests: FaxRequest[];
   loaded: boolean;
   loadError: string | null;
+  sidebarCollapsed: boolean;
 
   // Actions
   login: (email: string) => void;
@@ -32,6 +33,8 @@ interface StoreState {
   updateRequestStatus: (requestId: string, status: RequestStatus) => void;
   saveRequestSnapshot: (req: FaxRequest) => void;
   getRequest: (requestId: string) => FaxRequest | undefined;
+  toggleSidebar: () => void;
+  setSidebarCollapsed: (collapsed: boolean) => void;
 }
 
 const DEFAULT_USER: CurrentUser = { userId: 'user-self', teamId: 'T-A' };
@@ -44,6 +47,7 @@ export const useStore = create<StoreState>()(
       requests: [],
       loaded: false,
       loadError: null,
+      sidebarCollapsed: false,
 
       login: (email: string) => {
         set({ auth: { email, user: DEFAULT_USER } });
@@ -97,6 +101,14 @@ export const useStore = create<StoreState>()(
 
       getRequest: (requestId) => {
         return get().requests.find((r) => r.requestId === requestId);
+      },
+
+      toggleSidebar: () => {
+        set({ sidebarCollapsed: !get().sidebarCollapsed });
+      },
+
+      setSidebarCollapsed: (collapsed) => {
+        set({ sidebarCollapsed: collapsed });
       },
     }),
     {

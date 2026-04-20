@@ -1,4 +1,6 @@
 import type { FaxRequest, LineItem } from '@/types/request';
+import type { Customer, Product } from '@/types/master';
+import { normalizeDeliveryLocation } from '@/lib/delivery-locations';
 
 export type StepKey = 'step1' | 'step2' | 'step3' | 'step5';
 
@@ -14,7 +16,7 @@ export interface RequestDraft {
 export function toDraft(req: FaxRequest): RequestDraft {
   return {
     customerId: req.customerId,
-    deliveryLocation: req.deliveryLocation,
+    deliveryLocation: normalizeDeliveryLocation(req.deliveryLocation),
     lineItems: req.lineItems.map((li) => ({ ...li })),
   };
 }
@@ -34,15 +36,32 @@ export interface DraftDiff {
   after: string;
 }
 
-export function diffRequest(original: FaxRequest, draft: RequestDraft): DraftDiff[] {
+export function diffRequest(
+  original: FaxRequest,
+  draft: RequestDraft,
+  masters?: { customers: Customer[]; products: Product[] },
+): DraftDiff[] {
   const out: DraftDiff[] = [];
+  const customerLabel = (id: string) => {
+    const name = masters?.customers.find((c) => c.customerId === id)?.customerName;
+    return name ? `${id} ${name}` : id;
+  };
+  const productLabel = (code: string) => {
+    const name = masters?.products.find((p) => p.productCode === code)?.productName;
+    return name ? `${code} ${name}` : code;
+  };
   if (original.customerId !== draft.customerId) {
-    out.push({ field: '取引先', before: original.customerId, after: draft.customerId });
+    out.push({
+      field: '取引先',
+      before: customerLabel(original.customerId),
+      after: customerLabel(draft.customerId),
+    });
   }
-  if (original.deliveryLocation !== draft.deliveryLocation) {
+  const originalDelivery = normalizeDeliveryLocation(original.deliveryLocation);
+  if (originalDelivery !== draft.deliveryLocation) {
     out.push({
       field: '納品先',
-      before: original.deliveryLocation,
+      before: originalDelivery,
       after: draft.deliveryLocation,
     });
   }
@@ -53,8 +72,8 @@ export function diffRequest(original: FaxRequest, draft: RequestDraft): DraftDif
     if (a.productCode !== b.productCode) {
       out.push({
         field: `明細${i + 1} 商品コード`,
-        before: a.productCode,
-        after: b.productCode,
+        before: productLabel(a.productCode),
+        after: productLabel(b.productCode),
       });
     }
     if (a.quantity !== b.quantity) {

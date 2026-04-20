@@ -3,20 +3,28 @@
 import { SidebarNav } from './SidebarNav';
 import { AuthGate } from './AuthGate';
 import { useStore } from '@/store/store';
+import { PanelLeftOpen } from 'lucide-react';
+import { cn } from '@/lib/utils';
 
 export function AppShell({ children }: { children: React.ReactNode }) {
-  const auth = useStore((s) => s.auth);
+  const collapsed = useStore((s) => s.sidebarCollapsed);
+  const toggleSidebar = useStore((s) => s.toggleSidebar);
+
   return (
     <AuthGate>
-      <div className="app-shell">
+      <div className={cn('app-shell', collapsed && 'sidebar-collapsed')}>
         <SidebarNav />
         <main className="app-main">
-          <header className="app-header">
-            <h1>AIDW HITL Mock</h1>
-            <div className="breadcrumb">
-              <span>{auth?.email}</span>
-            </div>
-          </header>
+          {collapsed && (
+            <button
+              type="button"
+              className="sidebar-reopen"
+              aria-label="サイドバーを開く"
+              onClick={toggleSidebar}
+            >
+              <PanelLeftOpen />
+            </button>
+          )}
           <div className="app-body no-pad">{children}</div>
         </main>
       </div>

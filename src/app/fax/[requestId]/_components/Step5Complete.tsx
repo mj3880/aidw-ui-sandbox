@@ -10,7 +10,7 @@ export function Step5Complete() {
   const router = useRouter();
   const auth = useStore((s) => s.auth);
   const requests = useStore((s) => s.requests);
-  const updateStatus = useStore((s) => s.updateRequestStatus);
+  const saveSnapshot = useStore((s) => s.saveRequestSnapshot);
 
   const handleNext = () => {
     if (!auth) return;
@@ -20,7 +20,13 @@ export function Step5Complete() {
       router.push('/fax');
       return;
     }
-    updateStatus(next.requestId, 'in_progress');
+    saveSnapshot({
+      ...next,
+      status: 'in_progress',
+      assigneeUserId: auth.user.userId,
+      assigneeTeamId: auth.user.teamId,
+    });
+    toast.info('ステータスを「対応中」に変更しました');
     router.push(`/fax/${next.requestId}`);
   };
 

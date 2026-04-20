@@ -8,6 +8,7 @@ import type { Masters } from '@/types/master';
 import { useStore } from '@/store/store';
 import { getCustomerName } from '@/lib/master-repository';
 import { formatDateTime } from '@/lib/elapsed-time-formatter';
+import { normalizeDeliveryLocation } from '@/lib/delivery-locations';
 
 const CHIP_LABEL_STYLE: React.CSSProperties = {
   display: 'inline-flex',
@@ -29,7 +30,7 @@ export function RequestCard({
   masters: Masters | null;
 }) {
   const router = useRouter();
-  const updateStatus = useStore((s) => s.updateRequestStatus);
+  const saveSnapshot = useStore((s) => s.saveRequestSnapshot);
   const auth = useStore((s) => s.auth);
 
   const customerName = masters ? getCustomerName(masters, request.customerId) : request.customerId;
@@ -38,8 +39,13 @@ export function RequestCard({
 
   const handleClick = () => {
     console.info('RequestCard.handleClick', request.requestId, request.status);
-    if (request.status === 'pending') {
-      updateStatus(request.requestId, 'in_progress');
+    if (request.status === 'pending' && auth) {
+      saveSnapshot({
+        ...request,
+        status: 'in_progress',
+        assigneeUserId: auth.user.userId,
+        assigneeTeamId: auth.user.teamId,
+      });
       toast.info('ステータスを「対応中」に変更しました');
     }
     router.push(`/fax/${request.requestId}`);
@@ -83,9 +89,9 @@ export function RequestCard({
       <div
         className="truncate"
         style={{ fontSize: 12.5, color: 'var(--text-muted)', marginTop: 2 }}
-        title={request.deliveryLocation}
+        title={normalizeDeliveryLocation(request.deliveryLocation)}
       >
-        {request.deliveryLocation}
+        {normalizeDeliveryLocation(request.deliveryLocation)}
       </div>
 
       <div

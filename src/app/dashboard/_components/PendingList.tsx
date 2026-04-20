@@ -13,7 +13,7 @@ export function PendingList() {
   const requests = useStore((s) => s.requests);
   const masters = useStore((s) => s.masters);
   const auth = useStore((s) => s.auth);
-  const updateStatus = useStore((s) => s.updateRequestStatus);
+  const saveSnapshot = useStore((s) => s.saveRequestSnapshot);
   const router = useRouter();
   const [, forceTick] = useState(0);
 
@@ -30,7 +30,15 @@ export function PendingList() {
 
   const handleClick = (requestId: string) => {
     console.info('PendingList.handleClick', requestId);
-    updateStatus(requestId, 'in_progress');
+    if (!auth) return;
+    const target = requests.find((r) => r.requestId === requestId);
+    if (!target) return;
+    saveSnapshot({
+      ...target,
+      status: 'in_progress',
+      assigneeUserId: auth.user.userId,
+      assigneeTeamId: auth.user.teamId,
+    });
     toast.info('ステータスを「対応中」に変更しました');
     router.push(`/fax/${requestId}`);
   };

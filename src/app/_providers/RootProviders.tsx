@@ -1,6 +1,6 @@
 'use client';
 
-import { Toaster } from 'sonner';
+import { Toaster, toast } from 'sonner';
 import { useEffect } from 'react';
 import { useStore } from '@/store/store';
 
@@ -14,10 +14,22 @@ export function RootProviders({ children }: { children: React.ReactNode }) {
     }
   }, [loaded, loadAll]);
 
+  const handleToastClick = (e: React.MouseEvent<HTMLDivElement>) => {
+    if ((e.target as HTMLElement).closest('[data-sonner-toast]')) {
+      toast.dismiss();
+    }
+  };
+
   return (
     <>
       {children}
-      <Toaster richColors position="top-right" />
+      <div onClick={handleToastClick}>
+        <Toaster
+          richColors
+          position="bottom-right"
+          toastOptions={{ className: 'cursor-pointer' }}
+        />
+      </div>
     </>
   );
 }

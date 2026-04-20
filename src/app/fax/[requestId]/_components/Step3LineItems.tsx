@@ -17,6 +17,8 @@ interface Props {
   onBack: () => void;
   onConfirm: () => void;
   mode: Mode;
+  showAllFields: boolean;
+  onShowAllFieldsChange: (v: boolean) => void;
 }
 
 const ALL_FIELD_LABELS = [
@@ -34,8 +36,17 @@ const ALL_FIELD_LABELS = [
   '開発ルート',
 ];
 
-export function Step3LineItems({ draft, setDraft, onBack, onConfirm, mode }: Props) {
-  const [showAll, setShowAll] = useState(false);
+export function Step3LineItems({
+  draft,
+  setDraft,
+  onBack,
+  onConfirm,
+  mode,
+  showAllFields,
+  onShowAllFieldsChange,
+}: Props) {
+  const showAll = showAllFields;
+  const setShowAll = onShowAllFieldsChange;
 
   const visibleItems = useMemo(() => {
     if (showAll) return draft.lineItems;
@@ -58,7 +69,7 @@ export function Step3LineItems({ draft, setDraft, onBack, onConfirm, mode }: Pro
   );
 
   return (
-    <div className="card card-pad">
+    <div className="card card-pad" style={{ minWidth: 0 }}>
       <div className="flex items-center justify-between" style={{ marginBottom: 14 }}>
         <div>
           <h3 style={{ margin: '0 0 2px', fontSize: 15, fontWeight: 600 }}>明細の確認</h3>
@@ -87,17 +98,22 @@ export function Step3LineItems({ draft, setDraft, onBack, onConfirm, mode }: Pro
         </div>
       ) : (
         <div className="flex flex-col" style={{ gap: 10 }}>
-          {visibleItems.map((li, idx) => (
-            <LineItemRow
-              key={li.lineItemId}
-              item={li}
-              customerId={draft.customerId}
-              mode={mode}
-              showAllFields={showAll}
-              onUpdate={(patch) => updateItem(li.lineItemId, patch)}
-              indexLabel={`#${idx + 1}`}
-            />
-          ))}
+          {visibleItems.map((li) => {
+            const originalIdx = draft.lineItems.findIndex(
+              (x) => x.lineItemId === li.lineItemId,
+            );
+            return (
+              <LineItemRow
+                key={li.lineItemId}
+                item={li}
+                customerId={draft.customerId}
+                mode={mode}
+                showAllFields={showAll}
+                onUpdate={(patch) => updateItem(li.lineItemId, patch)}
+                indexLabel={`#${originalIdx + 1}`}
+              />
+            );
+          })}
         </div>
       )}
 
@@ -107,8 +123,8 @@ export function Step3LineItems({ draft, setDraft, onBack, onConfirm, mode }: Pro
             変更内容を確認 <ChevronRight className="size-3.5" />
           </button>
         )}
-        <button type="button" className="btn btn-ghost btn-sm" onClick={onBack}>
-          <ChevronLeft className="size-3.5" /> Step2へ戻る
+        <button type="button" className="btn btn-ghost" onClick={onBack}>
+          <ChevronLeft className="size-3.5" /> 戻る
         </button>
       </div>
     </div>
@@ -158,7 +174,7 @@ function LineItemRow({
       masters.productMappings,
       50,
     );
-    return ranked.map(({ product, source }) => ({
+    const list: ComboboxOption[] = ranked.map(({ product, source }) => ({
       value: product.productCode,
       label: product.productName,
       sublabel: `${product.productCode} / ${product.origin || '-'}`,
@@ -169,7 +185,19 @@ function LineItemRow({
             ? '汎用'
             : undefined,
     }));
-  }, [productQuery, customerId, masters]);
+    // 現在選択中の商品が候補に含まれない場合、先頭に補完（表示ラベル確保）
+    if (item.productCode && !list.some((o) => o.value === item.productCode)) {
+      const sel = masters.products.find((p) => p.productCode === item.productCode);
+      if (sel) {
+        list.unshift({
+          value: sel.productCode,
+          label: sel.productName,
+          sublabel: `${sel.productCode} / ${sel.origin || '-'}`,
+        });
+      }
+    }
+    return list;
+  }, [productQuery, customerId, masters, item.productCode]);
 
   // 低信頼度行の枠装飾 (warn-style: bg)
   const lowConfidenceStyle: React.CSSProperties = item.isLowConfidence
@@ -227,14 +255,25 @@ function LineItemRow({
         </div>
         <SearchCombobox
           value={item.productCode}
-          onChange={(v) =>
+          onChange={(v) => {
+            const nextName =
+              masters?.products.find((p) => p.productCode === v)?.productName ??
+              item.productName;
+            const exp = masters
+              ? computeExpectedPrice(
+                  customerId,
+                  v,
+                  masters.customerPrices,
+                  masters.defaultPrices,
+                )
+              : null;
+            const nextPrice = exp?.expectedPrice ?? item.unitPrice;
             onUpdate({
               productCode: v,
-              productName:
-                masters?.products.find((p) => p.productCode === v)?.productName ??
-                item.productName,
-            })
-          }
+              productName: nextName,
+              unitPrice: nextPrice,
+            });
+          }}
           options={productOptions}
           placeholder="商品名・コードで部分一致検索"
           disabled={mode === 'view'}
@@ -246,7 +285,7 @@ function LineItemRow({
       <div
         style={{
           display: 'grid',
-          gridTemplateColumns: '1fr 1fr',
+          gridTemplateColumns: 'minmax(0, 1fr) minmax(0, 1fr)',
           gap: 10,
         }}
       >
@@ -311,7 +350,7 @@ function LineItemRow({
           <div
             style={{
               display: 'grid',
-              gridTemplateColumns: '1fr 1fr 1fr',
+              gridTemplateColumns: 'minmax(0, 1fr) minmax(0, 1fr) minmax(0, 1fr)',
               gap: '4px 12px',
               fontSize: 11.5,
             }}

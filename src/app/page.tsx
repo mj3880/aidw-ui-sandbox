@@ -38,40 +38,12 @@ export default function LoginPage() {
           </div>
           <div>
             <div style={{ fontWeight: 600, fontSize: 15 }}>AIDW Console</div>
-            <div style={{ fontSize: 12, opacity: 0.7 }}>
-              Human-in-the-Loop Confirmation Platform
-            </div>
+            <div style={{ fontSize: 12, opacity: 0.7 }}>管理画面</div>
           </div>
         </div>
         <div>
-          <h1
-            style={{
-              fontSize: 34,
-              fontWeight: 600,
-              letterSpacing: '-0.02em',
-              margin: 0,
-              lineHeight: 1.2,
-            }}
-          >
-            OCR結果を
-            <br />
-            確実に、素早く。
-          </h1>
-          <p
-            style={{
-              marginTop: 16,
-              fontSize: 15,
-              opacity: 0.85,
-              lineHeight: 1.6,
-              maxWidth: 420,
-            }}
-          >
-            FAX注文書のOCR抽出結果を人の目で確認し、取引先・納品先・明細を
-            ステップバイステップで検証するワークフローUI。
-          </p>
           <div
             style={{
-              marginTop: 40,
               display: 'flex',
               gap: 24,
               fontSize: 12,

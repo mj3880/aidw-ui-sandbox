@@ -44,18 +44,26 @@ export function FaxDetailClient({ requestId }: { requestId: string }) {
   const router = useRouter();
   const loaded = useStore((s) => s.loaded);
   const requests = useStore((s) => s.requests);
+  const masters = useStore((s) => s.masters);
   const saveSnapshot = useStore((s) => s.saveRequestSnapshot);
+  const auth = useStore((s) => s.auth);
+  const sidebarCollapsed = useStore((s) => s.sidebarCollapsed);
 
   const request = useMemo(
     () => requests.find((r) => r.requestId === requestId),
     [requests, requestId],
   );
 
-  const mode: Mode = request && request.status === 'done' ? 'view' : 'edit';
+  const isAssignedToMe = auth != null && request != null && request.assigneeUserId === auth.user.userId;
+  const mode: Mode =
+    request && (request.status === 'done' || (request.status === 'in_progress' && !isAssignedToMe))
+      ? 'view'
+      : 'edit';
 
   const [step, setStep] = useState<StepKey>('step1');
   const [draft, setDraft] = useState<RequestDraft | null>(null);
   const [showModal, setShowModal] = useState(false);
+  const [showAllFields, setShowAllFields] = useState(false);
 
   // Initialize draft once when request becomes available.
   useEffect(() => {
@@ -92,7 +100,11 @@ export function FaxDetailClient({ requestId }: { requestId: string }) {
     );
   }
 
-  const diffs = diffRequest(request, draft);
+  const diffs = diffRequest(
+    request,
+    draft,
+    masters ? { customers: masters.customers, products: masters.products } : undefined,
+  );
 
   const handleApprove = () => {
     console.info('FaxDetailClient.handleApprove', { requestId, diffs });
@@ -103,58 +115,34 @@ export function FaxDetailClient({ requestId }: { requestId: string }) {
     toast.success('承認しました');
   };
 
-  const stepDefs = mode === 'view' ? VIEW_STEP_DEFS : EDIT_STEP_DEFS;
+  // 承認完了画面（step5）は節目としてフルステッパー（Step4含む5段）で表示する。
+  // 閲覧モード（done/他担当 in_progress）で Step1〜3 を辿る場合のみ Step4 を省いた簡略版。
+  const stepDefs = mode === 'edit' || step === 'step5' ? EDIT_STEP_DEFS : VIEW_STEP_DEFS;
 
   return (
     <AppShell>
       <div
         style={{
           display: 'grid',
-          gridTemplateColumns: `1fr ${RIGHT_PANEL_WIDTH}px`,
+          gridTemplateColumns: `${RIGHT_PANEL_WIDTH}px 1fr`,
           height: 'calc(100vh - 60px)',
           minHeight: 0,
         }}
       >
-        {/* Left: PDF */}
-        <section
-          style={{
-            minWidth: 0,
-            borderRight: '1px solid var(--border)',
-            display: 'flex',
-            flexDirection: 'column',
-          }}
-        >
-          <div
-            style={{
-              padding: '14px 24px',
-              background: 'var(--bg-elev)',
-              borderBottom: '1px solid var(--border)',
-              display: 'flex',
-              justifyContent: 'space-between',
-              alignItems: 'center',
-              fontSize: 12.5,
-              color: 'var(--text-muted)',
-            }}
-          >
-            <span className="code">原本PDF: {request.pdfFile}</span>
-          </div>
-          <div style={{ flex: 1, minHeight: 0 }}>
-            <PdfPane pdfUrl={`/samples/fax/${request.pdfFile}`} />
-          </div>
-        </section>
-
-        {/* Right: Step UI */}
+        {/* Left: Step UI */}
         <section
           style={{
             display: 'flex',
             flexDirection: 'column',
             minHeight: 0,
             background: 'var(--bg)',
+            borderRight: '1px solid var(--border)',
           }}
         >
           <div
             style={{
               padding: '14px 24px',
+              paddingLeft: sidebarCollapsed ? 60 : 24,
               background: 'var(--bg-elev)',
               borderBottom: '1px solid var(--border)',
               display: 'flex',
@@ -171,54 +159,116 @@ export function FaxDetailClient({ requestId }: { requestId: string }) {
               <ChevronLeft className="size-3.5" /> 一覧へ戻る
             </button>
             <div className="flex items-center gap-2.5">
+              {request.status === 'in_progress' && auth && request.assigneeUserId !== auth.user.userId && (
+                <button
+                  type="button"
+                  className="btn btn-ghost btn-sm"
+                  onClick={() => {
+                    const next = {
+                      ...request,
+                      assigneeUserId: auth.user.userId,
+                      assigneeTeamId: auth.user.teamId,
+                    };
+                    saveSnapshot(next);
+                    toast.success('担当を自分に変更しました');
+                  }}
+                >
+                  自分が担当
+                </button>
+              )}
+              {request.status === 'in_progress' && (
+                <span className="text-[12.5px]" style={{ color: 'var(--text-subtle)' }}>
+                  担当: {formatAssignee(request.assigneeUserId, request.assigneeTeamId, auth?.user.userId)}
+                </span>
+              )}
               <span className={STATUS_BADGE_CLASS[request.status]}>
                 <span className="dot" />
                 {STATUS_LABEL[request.status]}
               </span>
-              {mode === 'view' && (
-                <span className="text-[12.5px]" style={{ color: 'var(--text-subtle)' }}>
-                  閲覧モード
-                </span>
-              )}
             </div>
           </div>
 
           <div
             style={{
               flex: 1,
-              overflow: 'auto',
+              overflowY: 'auto',
+              overflowX: 'hidden',
               padding: '20px 24px',
-              display: 'grid',
-              gridTemplateColumns: '160px 1fr',
-              gap: 20,
-              alignItems: 'start',
+              display: 'flex',
+              flexDirection: 'column',
+              minWidth: 0,
             }}
           >
-            {/* Vertical stepper */}
-            <div className="stepper-v">
-              {stepDefs.map((s, i) => (
-                <Fragment key={s.n}>
-                  <div
-                    className={[
-                      'step',
-                      s.n === currentN ? 'active' : '',
-                      s.n < currentN ? 'done' : '',
-                    ]
-                      .filter(Boolean)
-                      .join(' ')}
-                  >
-                    <div className="circle">{s.n < currentN ? '✓' : s.n}</div>
-                    <div className="label">{s.label}</div>
-                  </div>
-                  {i < stepDefs.length - 1 && (
-                    <div className={`connector ${s.n < currentN ? 'done' : ''}`} />
-                  )}
-                </Fragment>
-              ))}
-            </div>
+            {mode === 'view' && step !== 'step5' && (
+              <div style={{ marginBottom: 12 }}>
+                <span
+                  style={{
+                    display: 'inline-flex',
+                    alignItems: 'center',
+                    gap: 6,
+                    padding: '3px 10px',
+                    borderRadius: 999,
+                    background: 'var(--bg-elev)',
+                    border: '1px solid var(--border)',
+                    color: 'var(--text-muted)',
+                    fontSize: 12,
+                    lineHeight: 1.4,
+                  }}
+                >
+                  <span
+                    style={{
+                      width: 6,
+                      height: 6,
+                      borderRadius: '50%',
+                      background: 'var(--text-muted)',
+                    }}
+                  />
+                  閲覧モード
+                </span>
+              </div>
+            )}
+            <div
+              style={{
+                display: 'grid',
+                gridTemplateColumns:
+                  step === 'step3' && showAllFields ? 'minmax(0, 1fr)' : '116px minmax(0, 1fr)',
+                gap: 14,
+                alignItems: 'start',
+                minWidth: 0,
+              }}
+            >
+            {/* Vertical stepper (全項目表示時は非表示で明細領域を拡張) */}
+            {!(step === 'step3' && showAllFields) && (
+              <div className="stepper-v">
+                {stepDefs.map((s, i) => {
+                  const allDone = mode === 'view' && step === 'step5';
+                  const isDone = allDone || s.n < currentN;
+                  const isActive = !allDone && s.n === currentN;
+                  return (
+                    <Fragment key={s.n}>
+                      <div
+                        className={[
+                          'step',
+                          isActive ? 'active' : '',
+                          isDone ? 'done' : '',
+                        ]
+                          .filter(Boolean)
+                          .join(' ')}
+                      >
+                        <div className="circle">{isDone ? '✓' : s.n}</div>
+                        <div className="label">{s.label}</div>
+                      </div>
+                      {i < stepDefs.length - 1 && (
+                        <div className={`connector ${isDone ? 'done' : ''}`} />
+                      )}
+                    </Fragment>
+                  );
+                })}
+              </div>
+            )}
 
             {/* Step content */}
-            <div>
+            <div style={{ minWidth: 0 }}>
               {step === 'step1' && (
                 <Step1Customer
                   draft={draft}
@@ -243,10 +293,40 @@ export function FaxDetailClient({ requestId }: { requestId: string }) {
                   mode={mode}
                   onBack={() => setStep('step2')}
                   onConfirm={() => setShowModal(true)}
+                  showAllFields={showAllFields}
+                  onShowAllFieldsChange={setShowAllFields}
                 />
               )}
               {step === 'step5' && <Step5Complete />}
             </div>
+            </div>
+          </div>
+        </section>
+
+        {/* Right: PDF */}
+        <section
+          style={{
+            minWidth: 0,
+            display: 'flex',
+            flexDirection: 'column',
+          }}
+        >
+          <div
+            style={{
+              padding: '14px 24px',
+              background: 'var(--bg-elev)',
+              borderBottom: '1px solid var(--border)',
+              display: 'flex',
+              justifyContent: 'space-between',
+              alignItems: 'center',
+              fontSize: 12.5,
+              color: 'var(--text-muted)',
+            }}
+          >
+            <span className="code">原本PDF: {request.pdfFile}</span>
+          </div>
+          <div style={{ flex: 1, minHeight: 0 }}>
+            <PdfPane pdfUrl={`/samples/fax/${request.pdfFile}`} />
           </div>
         </section>
       </div>
@@ -260,4 +340,17 @@ export function FaxDetailClient({ requestId }: { requestId: string }) {
       )}
     </AppShell>
   );
+}
+
+function formatAssignee(
+  assigneeUserId: string | null,
+  assigneeTeamId: string | null,
+  selfUserId: string | undefined,
+): string {
+  if (assigneeUserId) {
+    if (selfUserId && assigneeUserId === selfUserId) return '自分';
+    return assigneeUserId;
+  }
+  if (assigneeTeamId) return `${assigneeTeamId}（チーム）`;
+  return '-';
 }

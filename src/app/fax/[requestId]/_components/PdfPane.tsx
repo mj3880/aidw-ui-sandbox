@@ -2,7 +2,7 @@
 
 import { memo, useCallback, useEffect, useLayoutEffect, useRef, useState } from 'react';
 import dynamic from 'next/dynamic';
-import { AlertTriangle, Minus, Plus, RotateCcw, RotateCw } from 'lucide-react';
+import { AlertTriangle, Maximize, Minus, Plus, RotateCcw, RotateCw } from 'lucide-react';
 
 // Dynamically load react-pdf to avoid SSR issues.
 const Document = dynamic(() => import('react-pdf').then((m) => m.Document), { ssr: false });
@@ -37,13 +37,15 @@ const resolveCursorClass = (pan: boolean, dragging: boolean): string => {
 interface MemoizedPageProps {
   pageNumber: number;
   width: number;
+  rotate: number;
 }
 
-const MemoizedPage = memo(function MemoizedPage({ pageNumber, width }: MemoizedPageProps) {
+const MemoizedPage = memo(function MemoizedPage({ pageNumber, width, rotate }: MemoizedPageProps) {
   return (
     <Page
       pageNumber={pageNumber}
       width={width}
+      rotate={rotate}
       renderAnnotationLayer={false}
       renderTextLayer={false}
     />
@@ -57,6 +59,7 @@ export function PdfPane({ pdfUrl }: Props) {
   const [width, setWidth] = useState<number>(600);
 
   const [scale, setScale] = useState<number>(1.0);
+  const [rotation, setRotation] = useState<number>(0);
   const [offset, setOffset] = useState<{ x: number; y: number }>({ x: 0, y: 0 });
   const [isDragging, setIsDragging] = useState<boolean>(false);
 
@@ -114,8 +117,17 @@ export function PdfPane({ pdfUrl }: Props) {
     setScale((prev) => clampScale(prev - SCALE_STEP));
   }, []);
 
+  const rotateLeft = useCallback(() => {
+    setRotation((prev) => (prev + 270) % 360);
+  }, []);
+
+  const rotateRight = useCallback(() => {
+    setRotation((prev) => (prev + 90) % 360);
+  }, []);
+
   const resetView = useCallback(() => {
     setScale(1.0);
+    setRotation(0);
     setOffset({ x: 0, y: 0 });
   }, []);
 
@@ -230,13 +242,47 @@ export function PdfPane({ pdfUrl }: Props) {
         >
           {scalePercent}%
         </div>
+        <div
+          aria-hidden="true"
+          style={{
+            width: 1,
+            height: 20,
+            background: 'var(--border)',
+            margin: '0 4px',
+          }}
+        />
+        <button
+          type="button"
+          onClick={rotateLeft}
+          aria-label="左に90度回転"
+          className="btn btn-ghost btn-sm"
+        >
+          <RotateCcw className="size-4" />
+        </button>
+        <button
+          type="button"
+          onClick={rotateRight}
+          aria-label="右に90度回転"
+          className="btn btn-ghost btn-sm"
+        >
+          <RotateCw className="size-4" />
+        </button>
+        <div
+          aria-hidden="true"
+          style={{
+            width: 1,
+            height: 20,
+            background: 'var(--border)',
+            margin: '0 4px',
+          }}
+        />
         <button
           type="button"
           onClick={resetView}
-          aria-label="100%にリセット"
+          aria-label="表示をリセット"
           className="btn btn-ghost btn-sm"
         >
-          <RotateCcw className="size-3" />
+          <Maximize className="size-3" />
           100%
         </button>
       </div>
@@ -293,7 +339,7 @@ export function PdfPane({ pdfUrl }: Props) {
                   key={`page_${i + 1}`}
                   className="mb-3 shadow bg-white inline-block"
                 >
-                  <MemoizedPage pageNumber={i + 1} width={width * scale} />
+                  <MemoizedPage pageNumber={i + 1} width={width * scale} rotate={rotation} />
                 </div>
               ))}
             </Document>

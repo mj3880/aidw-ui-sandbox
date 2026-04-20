@@ -148,12 +148,46 @@ textarea {
 .app-shell {
   display: grid;
   grid-template-columns: 240px 1fr;
-  min-height: 100vh;
+  grid-template-rows: minmax(0, 1fr);
+  height: 100vh;
+  overflow: hidden;
+}
+.app-shell.sidebar-collapsed {
+  grid-template-columns: 1fr;
+}
+.app-shell.sidebar-collapsed .sidebar {
+  display: none;
 }
 .app-main {
   display: flex;
   flex-direction: column;
   min-width: 0;
+  min-height: 0;
+  position: relative;
+}
+.sidebar-reopen {
+  position: absolute;
+  top: 12px;
+  left: 12px;
+  z-index: 10;
+  width: 32px;
+  height: 32px;
+  display: grid;
+  place-items: center;
+  border: 1px solid var(--border);
+  background: var(--bg-elev);
+  color: var(--text-muted);
+  border-radius: var(--r-sm);
+  cursor: pointer;
+  transition: background 0.15s, color 0.15s;
+}
+.sidebar-reopen:hover {
+  background: var(--bg-hover, var(--sidebar-hover));
+  color: var(--text);
+}
+.sidebar-reopen svg {
+  width: 18px;
+  height: 18px;
 }
 .app-header {
   height: 60px;
@@ -206,6 +240,31 @@ textarea {
   align-items: center;
   gap: 10px;
   border-bottom: 1px solid var(--sidebar-border);
+}
+.sidebar-brand-text {
+  flex: 1;
+  min-width: 0;
+}
+.sidebar-collapse-btn {
+  width: 28px;
+  height: 28px;
+  display: grid;
+  place-items: center;
+  border: none;
+  background: transparent;
+  color: var(--sidebar-text-muted);
+  border-radius: var(--r-sm);
+  cursor: pointer;
+  flex-shrink: 0;
+  transition: background 0.15s, color 0.15s;
+}
+.sidebar-collapse-btn:hover {
+  background: var(--sidebar-hover);
+  color: var(--sidebar-text);
+}
+.sidebar-collapse-btn svg {
+  width: 16px;
+  height: 16px;
 }
 .sidebar-brand .logo {
   width: 32px;
@@ -688,20 +747,20 @@ table.data tr:last-child td {
 }
 .stepper-v .step {
   display: grid;
-  grid-template-columns: 32px 1fr;
-  gap: 12px;
-  padding: 8px 0;
+  grid-template-columns: 24px 1fr;
+  gap: 10px;
+  padding: 6px 0;
   align-items: flex-start;
 }
 .stepper-v .step .circle {
-  width: 28px;
-  height: 28px;
+  width: 24px;
+  height: 24px;
   border-radius: 50%;
   background: var(--bg-muted);
   color: var(--text-muted);
   display: grid;
   place-items: center;
-  font-size: 12px;
+  font-size: 11.5px;
   font-weight: 600;
   border: 2px solid var(--bg-muted);
 }
@@ -716,10 +775,11 @@ table.data tr:last-child td {
   border-color: var(--status-completed);
 }
 .stepper-v .step .label {
-  padding-top: 5px;
-  font-size: 13px;
+  padding-top: 4px;
+  font-size: 11px;
   color: var(--text-muted);
   font-weight: 500;
+  white-space: nowrap;
 }
 .stepper-v .step.active .label {
   color: var(--text);
@@ -730,9 +790,9 @@ table.data tr:last-child td {
 }
 .stepper-v .connector {
   width: 2px;
-  height: 14px;
+  height: 12px;
   background: var(--border);
-  margin-left: 15px;
+  margin-left: 11px;
 }
 .stepper-v .connector.done {
   background: var(--status-completed);

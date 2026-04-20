@@ -30,6 +30,35 @@ const rand = mulberry32(20260418);
 const randInt = (min, max) => Math.floor(rand() * (max - min + 1)) + min;
 const pick = (arr) => arr[Math.floor(rand() * arr.length)];
 
+// Keep this list in sync with src/lib/delivery-locations.ts
+const DELIVERY_LOCATIONS = [
+  '本店',
+  '東京支店',
+  '大阪支店',
+  '名古屋支店',
+  '横浜支店',
+  '神戸支店',
+  '福岡支店',
+  '札幌支店',
+  '仙台支店',
+  '広島支店',
+  '京都営業所',
+  '千葉営業所',
+  '埼玉営業所',
+  '川崎営業所',
+  '新宿営業所',
+  '渋谷営業所',
+  '品川営業所',
+  '池袋営業所',
+  '豊洲市場店',
+  '築地店',
+  '大田市場店',
+  '秋葉原店',
+  '梅田店',
+  '難波店',
+  '天神店',
+];
+
 // --- Load CSVs (very minimal CSV parser; trim BOM) ---
 function parseCsv(text) {
   const lines = text.replace(/^\uFEFF/, '').replace(/\r\n/g, '\n').split('\n').filter((l) => l.length > 0);
@@ -44,8 +73,15 @@ function parseCsv(text) {
 
 const customersCsv = await readFile(path.join(samplesMaster, 'customers.csv'), 'utf8');
 const productsCsv = await readFile(path.join(samplesMaster, 'products.csv'), 'utf8');
+const defaultPricesCsv = await readFile(
+  path.join(samplesMaster, 'aitera_vegetable_default_prices.csv'),
+  'utf8',
+);
+const customerPricesCsv = await readFile(path.join(samplesMaster, 'customer_prices.csv'), 'utf8');
 const customers = parseCsv(customersCsv);
 const products = parseCsv(productsCsv);
+const defaultPricesRows = parseCsv(defaultPricesCsv);
+const customerPricesRows = parseCsv(customerPricesCsv);
 
 // Normalize product code to 7 digits
 function pad7(s) {
@@ -57,6 +93,32 @@ const productList = products.map((p) => ({
   productCode: pad7(p['商品CD']),
   productName: p['商品名'],
 }));
+
+// defaultPrices / customerPrices を正規化
+const defaultPriceMap = new Map(
+  defaultPricesRows.map((r) => [pad7(r['product_code']), Number(r['default_unit_price'])]),
+);
+const customerPriceList = customerPricesRows.map((r) => ({
+  customerId: r['customer_id'],
+  productCode: pad7(r['product_code']),
+  priceType: r['price_type'], // 'coefficient' | 'absolute'
+  value: Number(r['value']),
+}));
+
+function computeExpectedPrice(customerId, productCode) {
+  const defaultPrice = defaultPriceMap.get(productCode) ?? null;
+  const cp = customerPriceList.find(
+    (p) => p.customerId === customerId && p.productCode === productCode,
+  );
+  if (cp) {
+    if (cp.priceType === 'coefficient') {
+      if (defaultPrice === null) return null;
+      return Math.round(defaultPrice * cp.value);
+    }
+    return cp.value;
+  }
+  return defaultPrice;
+}
 
 // Find PDF files
 const faxFiles = (await readdir(samplesFax))
@@ -129,8 +191,13 @@ const requests = faxFiles.map((file, idx) => {
   }
 
   // Override: done/in_progress should also have a concrete user assignee for display.
+  // 対応中(in_progress)は自分への偏りを避け、selfteam由来でも 1/3 のみ self、残り 2/3 は他ユーザーへ振る。
   if ((status === 'done' || status === 'in_progress') && !assigneeUserId) {
-    assigneeUserId = assigneeKind === 'selfteam' ? SELF_USER : pick(OTHER_USERS);
+    if (status === 'in_progress' && assigneeKind === 'selfteam') {
+      assigneeUserId = rand() < 1 / 3 ? SELF_USER : pick(OTHER_USERS);
+    } else {
+      assigneeUserId = assigneeKind === 'selfteam' ? SELF_USER : pick(OTHER_USERS);
+    }
   }
 
   const receivedOffset = Math.floor(rand() * SEVEN_DAYS);
@@ -149,17 +216,31 @@ const requests = faxFiles.map((file, idx) => {
   for (let i = 0; i < lineCount; i++) {
     const product = productList[Math.floor(rand() * productList.length)];
     const isLow = rand() < 0.3;
-    const baseUnit = randInt(1000, 8000);
-    // Occasionally add big drift to surface warning/error display
-    const driftRoll = rand();
-    let unitPrice = baseUnit;
-    if (driftRoll < 0.1) unitPrice = Math.round(baseUnit * 1.4);
-    else if (driftRoll < 0.2) unitPrice = Math.round(baseUnit * 0.85);
+    const expected = computeExpectedPrice(customer.customer_id, product.productCode);
+
+    let productCode;
+    let productName;
+    let unitPrice;
+    if (isLow) {
+      // 低信頼度: 商品未確定（空）・単価はOCRゆらぎ値（マスタ差分あり得る）
+      productCode = '';
+      productName = '';
+      const baseUnit = expected ?? randInt(1000, 8000);
+      const driftRoll = rand();
+      if (driftRoll < 0.4) unitPrice = Math.round(baseUnit * 1.31);
+      else if (driftRoll < 0.7) unitPrice = Math.round(baseUnit * 0.82);
+      else unitPrice = Math.round(baseUnit * 1.12);
+    } else {
+      // 低信頼度以外: 商品確定・単価もマスタ整合値
+      productCode = product.productCode;
+      productName = product.productName;
+      unitPrice = expected ?? randInt(1000, 8000);
+    }
 
     lineItems.push({
       lineItemId: `${requestId}-L${String(i + 1).padStart(2, '0')}`,
-      productCode: product.productCode,
-      productName: product.productName,
+      productCode,
+      productName,
       quantity: randInt(1, 50),
       unitPrice,
       isLowConfidence: isLow,
@@ -170,7 +251,7 @@ const requests = faxFiles.map((file, idx) => {
     requestId,
     pdfFile: file,
     customerId: customer.customer_id,
-    deliveryLocation: `${customer.customer_name} 本店`,
+    deliveryLocation: pick(DELIVERY_LOCATIONS),
     receivedAt,
     orderDate,
     deliveryDate,
