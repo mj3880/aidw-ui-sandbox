@@ -8,14 +8,16 @@ export function AppShell({ children }: { children: React.ReactNode }) {
   const auth = useStore((s) => s.auth);
   return (
     <AuthGate>
-      <div className="min-h-screen flex">
+      <div className="app-shell">
         <SidebarNav />
-        <main className="flex-1 min-w-0 flex flex-col">
-          <header className="h-12 border-b border-slate-200 bg-white px-4 flex items-center justify-between">
-            <div className="text-sm font-semibold text-slate-700">AIDW HITL Mock</div>
-            <div className="text-xs text-slate-500">{auth?.email}</div>
+        <main className="app-main">
+          <header className="app-header">
+            <h1>AIDW HITL Mock</h1>
+            <div className="bc">
+              <span>{auth?.email}</span>
+            </div>
           </header>
-          <div className="flex-1 min-w-0 overflow-auto">{children}</div>
+          <div className="app-body no-pad">{children}</div>
         </main>
       </div>
     </AuthGate>

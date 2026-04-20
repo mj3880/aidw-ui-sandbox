@@ -4,6 +4,7 @@ import { useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { useStore } from '@/store/store';
 import { toast } from 'sonner';
+import { ArrowRight, Info } from 'lucide-react';
 
 export function LoginForm() {
   const router = useRouter();
@@ -42,37 +43,62 @@ export function LoginForm() {
   };
 
   return (
-    <form onSubmit={handleSubmit} className="space-y-4">
-      <div>
-        <label className="block text-sm font-medium text-slate-700 mb-1">メールアドレス</label>
+    <form onSubmit={handleSubmit} style={{ width: '100%', maxWidth: 360 }}>
+      <h2
+        style={{
+          fontSize: 22,
+          fontWeight: 600,
+          letterSpacing: '-0.01em',
+          margin: '0 0 6px',
+        }}
+      >
+        ログイン
+      </h2>
+      <p style={{ color: 'var(--text-muted)', fontSize: 13.5, margin: '0 0 28px' }}>
+        メールアドレスとパスワードを入力してください
+      </p>
+
+      <div className="mb-4">
+        <label className="form-label">メールアドレス</label>
         <input
           type="email"
           value={email}
           onChange={(e) => setEmail(e.target.value)}
-          className="w-full rounded-md border border-slate-300 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
-          placeholder="例: user@example.com"
+          className="input"
+          placeholder="you@example.com"
+          autoFocus
         />
-        {errors.email && <p className="mt-1 text-xs text-red-600">{errors.email}</p>}
+        {errors.email && <div className="form-error">{errors.email}</div>}
       </div>
-      <div>
-        <label className="block text-sm font-medium text-slate-700 mb-1">パスワード</label>
+      <div className="mb-6">
+        <label className="form-label">パスワード</label>
         <input
           type="password"
           value={password}
           onChange={(e) => setPassword(e.target.value)}
-          className="w-full rounded-md border border-slate-300 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
-          placeholder="任意の値で構いません"
+          className="input"
+          placeholder="••••••••"
         />
-        {errors.password && <p className="mt-1 text-xs text-red-600">{errors.password}</p>}
+        {errors.password && <div className="form-error">{errors.password}</div>}
       </div>
       <button
         type="submit"
         disabled={submitting}
-        className="w-full rounded-md bg-blue-600 text-white py-2 text-sm font-semibold hover:bg-blue-700 disabled:opacity-50"
+        className="btn btn-primary btn-lg"
+        style={{ width: '100%' }}
       >
-        {submitting ? 'ログイン中...' : 'ログイン'}
+        {submitting ? 'ログイン中...' : 'ログイン'} <ArrowRight className="size-4" />
       </button>
-      <p className="text-xs text-slate-400 text-center">Mock認証のため任意の値で成立します</p>
+      <p
+        className="flex items-center justify-center gap-1"
+        style={{
+          marginTop: 20,
+          fontSize: 12,
+          color: 'var(--text-subtle)',
+        }}
+      >
+        <Info className="size-3" /> Mock認証：任意のメール/パスワードでログインできます
+      </p>
     </form>
   );
 }

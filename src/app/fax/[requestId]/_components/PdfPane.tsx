@@ -193,16 +193,24 @@ export function PdfPane({ pdfUrl }: Props) {
   return (
     <div
       ref={viewportRef}
-      className="relative h-full w-full overflow-auto bg-slate-100"
+      className="relative h-full w-full overflow-auto"
+      style={{ background: 'var(--bg-muted)' }}
     >
       {/* ツールバー */}
-      <div className="sticky top-0 z-10 flex items-center gap-1 border-b border-slate-200 bg-white/95 px-3 py-2 shadow-sm backdrop-blur">
+      <div
+        className="sticky top-0 z-10 flex items-center gap-1 px-3 py-2"
+        style={{
+          background: 'var(--bg-elev)',
+          borderBottom: '1px solid var(--border)',
+          boxShadow: 'var(--shadow-sm)',
+        }}
+      >
         <button
           type="button"
           onClick={zoomOut}
           disabled={!canZoomOut}
           aria-label="縮小"
-          className="inline-flex items-center justify-center rounded border border-slate-300 bg-white p-1.5 text-slate-700 hover:bg-slate-50 disabled:cursor-not-allowed disabled:opacity-40"
+          className="btn btn-ghost btn-sm"
         >
           <Minus className="size-4" />
         </button>
@@ -211,12 +219,13 @@ export function PdfPane({ pdfUrl }: Props) {
           onClick={zoomIn}
           disabled={!canZoomIn}
           aria-label="拡大"
-          className="inline-flex items-center justify-center rounded border border-slate-300 bg-white p-1.5 text-slate-700 hover:bg-slate-50 disabled:cursor-not-allowed disabled:opacity-40"
+          className="btn btn-ghost btn-sm"
         >
           <Plus className="size-4" />
         </button>
         <div
-          className="min-w-[3.5rem] px-2 text-center text-xs font-medium tabular-nums text-slate-700"
+          className="min-w-[3.5rem] px-2 text-center text-xs font-medium tabular-nums"
+          style={{ color: 'var(--text-muted)' }}
           aria-live="polite"
         >
           {scalePercent}%
@@ -225,7 +234,7 @@ export function PdfPane({ pdfUrl }: Props) {
           type="button"
           onClick={resetView}
           aria-label="100%にリセット"
-          className="inline-flex items-center gap-1 rounded border border-slate-300 bg-white px-2 py-1.5 text-xs text-slate-700 hover:bg-slate-50"
+          className="btn btn-ghost btn-sm"
         >
           <RotateCcw className="size-3" />
           100%
@@ -234,14 +243,21 @@ export function PdfPane({ pdfUrl }: Props) {
 
       <div className={['p-4', cursorClass].filter(Boolean).join(' ')}>
         {error ? (
-          <div className="flex flex-col items-center justify-center text-center gap-3 p-8 bg-white border border-red-200 rounded-md">
-            <AlertTriangle className="size-8 text-red-500" />
-            <div className="text-sm text-red-700">PDFを読み込めませんでした</div>
-            <div className="text-xs text-slate-500 break-all">{error}</div>
+          <div
+            className="card flex flex-col items-center justify-center text-center gap-3 p-8"
+            style={{ borderColor: 'var(--err-border)' }}
+          >
+            <AlertTriangle className="size-8" style={{ color: 'var(--err-text)' }} />
+            <div className="text-sm" style={{ color: 'var(--err-text)' }}>
+              PDFを読み込めませんでした
+            </div>
+            <div className="text-xs break-all" style={{ color: 'var(--text-muted)' }}>
+              {error}
+            </div>
             <button
               type="button"
               onClick={() => setRetryNonce((n) => n + 1)}
-              className="inline-flex items-center gap-1 rounded bg-blue-600 text-white text-xs px-3 py-1.5 hover:bg-blue-700"
+              className="btn btn-primary btn-sm"
             >
               <RotateCw className="size-3" />
               リトライ

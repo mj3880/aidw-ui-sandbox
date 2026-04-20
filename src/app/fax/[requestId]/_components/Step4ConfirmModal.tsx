@@ -1,7 +1,7 @@
 'use client';
 
+import { Check, X } from 'lucide-react';
 import type { DraftDiff } from './types';
-import { X } from 'lucide-react';
 
 interface Props {
   diffs: DraftDiff[];
@@ -11,57 +11,66 @@ interface Props {
 
 export function Step4ConfirmModal({ diffs, onCancel, onApprove }: Props) {
   return (
-    <div className="fixed inset-0 z-30 bg-black/40 flex items-center justify-center p-4">
-      <div className="bg-white rounded-lg shadow-xl max-w-lg w-full">
-        <div className="flex items-center justify-between px-4 py-3 border-b border-slate-200">
-          <h3 className="text-base font-semibold">変更内容の確認</h3>
-          <button
-            type="button"
-            onClick={onCancel}
-            className="text-slate-400 hover:text-slate-600"
-            aria-label="閉じる"
-          >
-            <X className="size-5" />
-          </button>
+    <div className="modal-backdrop" onClick={onCancel}>
+      <div className="modal" onClick={(e) => e.stopPropagation()}>
+        <div className="modal-header">
+          <div className="flex items-start justify-between">
+            <div>
+              <h2>変更内容の確認</h2>
+              <div className="sub">承認前に変更内容を確認してください</div>
+            </div>
+            <button
+              type="button"
+              onClick={onCancel}
+              className="btn btn-ghost btn-sm"
+              aria-label="閉じる"
+            >
+              <X className="size-4" />
+            </button>
+          </div>
         </div>
-        <div className="px-4 py-4 max-h-80 overflow-y-auto">
+        <div className="modal-body">
           {diffs.length === 0 ? (
-            <p className="text-sm text-slate-500">変更はありません。そのまま承認できます。</p>
+            <div
+              style={{
+                padding: 20,
+                textAlign: 'center',
+                background: 'var(--bg-muted)',
+                borderRadius: 'var(--r-sm)',
+                color: 'var(--text-muted)',
+              }}
+            >
+              変更項目はありません（OCR結果のまま承認）
+            </div>
           ) : (
-            <table className="w-full text-xs">
-              <thead className="bg-slate-50 text-slate-600">
+            <table className="t">
+              <thead>
                 <tr>
-                  <th className="text-left px-2 py-1.5">項目</th>
-                  <th className="text-left px-2 py-1.5">変更前</th>
-                  <th className="text-left px-2 py-1.5">変更後</th>
+                  <th>項目</th>
+                  <th>変更前</th>
+                  <th>変更後</th>
                 </tr>
               </thead>
-              <tbody className="divide-y divide-slate-100">
+              <tbody>
                 {diffs.map((d, i) => (
                   <tr key={i}>
-                    <td className="px-2 py-1.5 text-slate-700">{d.field}</td>
-                    <td className="px-2 py-1.5 text-slate-500">{d.before}</td>
-                    <td className="px-2 py-1.5 font-semibold text-slate-900">{d.after}</td>
+                    <td className="font-medium">{d.field}</td>
+                    <td style={{ color: 'var(--text-subtle)', textDecoration: 'line-through' }}>
+                      {d.before}
+                    </td>
+                    <td style={{ color: 'var(--accent-text)', fontWeight: 500 }}>{d.after}</td>
                   </tr>
                 ))}
               </tbody>
             </table>
           )}
         </div>
-        <div className="px-4 py-3 border-t border-slate-200 flex justify-end gap-2">
-          <button
-            type="button"
-            onClick={onCancel}
-            className="rounded-md border border-slate-300 px-4 py-2 text-sm text-slate-700 hover:bg-slate-50"
-          >
+        <div className="modal-footer">
+          <button type="button" onClick={onCancel} className="btn btn-secondary">
             キャンセル
           </button>
-          <button
-            type="button"
-            onClick={onApprove}
-            className="rounded-md bg-emerald-600 text-white px-4 py-2 text-sm font-semibold hover:bg-emerald-700"
-          >
-            承認
+          <button type="button" onClick={onApprove} className="btn btn-primary">
+            <Check className="size-3.5" /> 承認
           </button>
         </div>
       </div>

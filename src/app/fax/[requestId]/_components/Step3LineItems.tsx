@@ -1,11 +1,12 @@
 'use client';
 
 import { useMemo, useState } from 'react';
+import { ChevronLeft, ChevronRight } from 'lucide-react';
 import { useStore } from '@/store/store';
 import { SearchCombobox, type ComboboxOption } from '@/components/SearchCombobox';
 import { PriceDiffBadge } from '@/components/PriceDiffBadge';
 import { resolveProductCandidates } from '@/lib/product-mapping-resolver';
-import { computeExpectedPrice, classifyDiff } from '@/lib/price-calculator';
+import { computeExpectedPrice, classifyDiff, type DiffLevel } from '@/lib/price-calculator';
 import { cn, formatYen } from '@/lib/utils';
 import type { Mode, RequestDraft } from './types';
 import type { LineItem } from '@/types/request';
@@ -51,60 +52,62 @@ export function Step3LineItems({ draft, setDraft, onBack, onConfirm, mode }: Pro
     });
   };
 
+  const lowCount = draft.lineItems.filter((li) => li.isLowConfidence).length;
+
   return (
-    <div className="p-4 space-y-4">
-      <div className="flex items-center justify-between">
-        <h2 className="text-base font-semibold">Step 3: 明細の確認</h2>
-        <button
-          type="button"
-          onClick={onBack}
-          className="text-xs text-slate-500 hover:text-slate-700"
+    <div className="card card-pad">
+      <div className="flex items-center justify-between" style={{ marginBottom: 14 }}>
+        <div>
+          <h3 style={{ margin: '0 0 2px', fontSize: 15, fontWeight: 600 }}>明細の確認</h3>
+          <p style={{ color: 'var(--text-muted)', fontSize: 12.5, margin: 0 }}>
+            {showAll
+              ? `全 ${draft.lineItems.length} 件`
+              : `低信頼度 ${lowCount} 件 / 全 ${draft.lineItems.length} 件`}
+          </p>
+        </div>
+        <label
+          className="flex items-center gap-2 select-none cursor-pointer"
+          style={{ fontSize: 12.5 }}
         >
-          ← Step2に戻る
-        </button>
-      </div>
-      <div className="flex items-center justify-between">
-        <p className="text-xs text-slate-500">
-          {showAll
-            ? `全 ${draft.lineItems.length} 件の明細を表示中（低信頼度行は黄色背景）`
-            : `OCR信頼度が低い明細のみ表示中（${visibleItems.length} / ${draft.lineItems.length} 件）`}
-        </p>
-        <label className="inline-flex items-center gap-2 text-xs text-slate-700 select-none">
           <input
             type="checkbox"
             checked={showAll}
             onChange={(e) => setShowAll(e.target.checked)}
-            className="size-4"
           />
-          全項目表示（12項目展開）
+          全項目表示
         </label>
       </div>
 
-      <ul className="space-y-2">
-        {visibleItems.map((li, idx) => (
-          <LineItemRow
-            key={li.lineItemId}
-            item={li}
-            customerId={draft.customerId}
-            mode={mode}
-            showAllFields={showAll}
-            onUpdate={(patch) => updateItem(li.lineItemId, patch)}
-            indexLabel={`#${idx + 1}`}
-          />
-        ))}
-      </ul>
-
-      {mode === 'edit' && (
-        <div className="flex justify-end pt-2">
-          <button
-            type="button"
-            onClick={onConfirm}
-            className="rounded-md bg-blue-600 text-white px-4 py-2 text-sm font-semibold hover:bg-blue-700"
-          >
-            すべて確認 / モーダルへ
-          </button>
+      {visibleItems.length === 0 ? (
+        <div className="empty" style={{ padding: '32px 20px' }}>
+          <h3>明細はありません</h3>
+        </div>
+      ) : (
+        <div className="flex flex-col" style={{ gap: 10 }}>
+          {visibleItems.map((li, idx) => (
+            <LineItemRow
+              key={li.lineItemId}
+              item={li}
+              customerId={draft.customerId}
+              mode={mode}
+              showAllFields={showAll}
+              onUpdate={(patch) => updateItem(li.lineItemId, patch)}
+              indexLabel={`#${idx + 1}`}
+            />
+          ))}
         </div>
       )}
+
+      <div className="flex gap-2.5" style={{ marginTop: 18 }}>
+        {mode === 'edit' && (
+          <button type="button" className="btn btn-primary" onClick={onConfirm}>
+            変更内容を確認 <ChevronRight className="size-3.5" />
+          </button>
+        )}
+        <button type="button" className="btn btn-ghost btn-sm" onClick={onBack}>
+          <ChevronLeft className="size-3.5" /> Step2へ戻る
+        </button>
+      </div>
     </div>
   );
 }
@@ -139,7 +142,9 @@ function LineItemRow({
     );
   }, [customerId, item.productCode, masters]);
 
-  const diffLevel = expected ? classifyDiff(item.unitPrice, expected.expectedPrice) : 'unknown';
+  const diffLevel: DiffLevel = expected
+    ? classifyDiff(item.unitPrice, expected.expectedPrice)
+    : 'unknown';
 
   const productOptions: ComboboxOption[] = useMemo(() => {
     if (!masters) return [];
@@ -158,102 +163,165 @@ function LineItemRow({
         source === 'customer-manual' || source === 'customer-auto'
           ? '取引先別'
           : source === 'generic-manual' || source === 'generic-auto'
-          ? '汎用'
-          : undefined,
+            ? '汎用'
+            : undefined,
     }));
   }, [productQuery, customerId, masters]);
 
-  return (
-    <li
-      className={cn(
-        'rounded-md border bg-white p-3 space-y-2',
-        item.isLowConfidence
-          ? 'bg-yellow-50 border border-slate-200 border-l-4 border-l-yellow-500'
-          : 'border-slate-200',
-      )}
-    >
-      <div className="flex items-center justify-between">
-        <div className="text-xs font-semibold text-slate-500">{indexLabel}</div>
-        {item.isLowConfidence && (
-          <span className="inline-flex items-center rounded bg-yellow-200 text-yellow-900 text-[10px] font-semibold px-1.5 py-0.5">
-            低信頼度
-          </span>
-        )}
-      </div>
+  // 低信頼度行の枠装飾 (warn-style: bg)
+  const lowConfidenceStyle: React.CSSProperties = item.isLowConfidence
+    ? {
+        borderLeft: '3px solid var(--warn-border)',
+        background: 'var(--warn-bg-soft)',
+      }
+    : {};
 
-      <div className="grid grid-cols-12 gap-2 items-start">
-        <div className="col-span-6">
-          <label className="block text-[11px] text-slate-500 mb-0.5">商品</label>
-          {showAllFields || mode === 'edit' ? (
-            <SearchCombobox
-              value={item.productCode}
-              onChange={(v) =>
-                onUpdate({
-                  productCode: v,
-                  productName:
-                    masters?.products.find((p) => p.productCode === v)?.productName ??
-                    item.productName,
-                })
-              }
-              options={productOptions}
-              placeholder="商品名 / コードで検索"
-              disabled={mode === 'view'}
-              onQueryChange={setProductQuery}
-            />
-          ) : (
-            <div className="text-sm font-medium">
-              {item.productName}
-              <span className="ml-2 text-xs text-slate-400">({item.productCode})</span>
-            </div>
+  // 単価欄の背景（warn-style: bg）
+  const priceInputStyle: React.CSSProperties = (() => {
+    if (diffLevel === 'error') {
+      return { background: 'var(--err-bg-soft)', borderColor: 'var(--err-border)' };
+    }
+    if (diffLevel === 'warning') {
+      return { background: 'var(--warn-bg-soft)', borderColor: 'var(--warn-border)' };
+    }
+    return {};
+  })();
+
+  return (
+    <div
+      style={{
+        border: '1px solid var(--border)',
+        borderRadius: 'var(--r-sm)',
+        padding: 14,
+        background: 'var(--bg-elev)',
+        ...lowConfidenceStyle,
+      }}
+    >
+      <div className="flex items-center justify-between" style={{ marginBottom: 10 }}>
+        <div className="flex items-center gap-2.5">
+          <span className="code">{indexLabel}</span>
+          {item.isLowConfidence && (
+            <span
+              style={{
+                fontSize: 10.5,
+                fontWeight: 600,
+                color: 'var(--warn-text)',
+                background: 'var(--warn-bg)',
+                padding: '2px 7px',
+                borderRadius: 999,
+              }}
+            >
+              低信頼度
+            </span>
           )}
         </div>
-        <div className="col-span-2">
-          <label className="block text-[11px] text-slate-500 mb-0.5">個数</label>
+      </div>
+
+      {/* Product */}
+      <div style={{ marginBottom: 10 }}>
+        <div className="form-label" style={{ marginBottom: 4 }}>
+          商品コード・商品名
+        </div>
+        <SearchCombobox
+          value={item.productCode}
+          onChange={(v) =>
+            onUpdate({
+              productCode: v,
+              productName:
+                masters?.products.find((p) => p.productCode === v)?.productName ??
+                item.productName,
+            })
+          }
+          options={productOptions}
+          placeholder="商品名・コードで部分一致検索"
+          disabled={mode === 'view'}
+          onQueryChange={setProductQuery}
+        />
+      </div>
+
+      {/* Qty + Price */}
+      <div
+        style={{
+          display: 'grid',
+          gridTemplateColumns: '1fr 1fr',
+          gap: 10,
+        }}
+      >
+        <div>
+          <div className="form-label">個数</div>
           <input
+            className="input"
             type="number"
             value={item.quantity}
             disabled={mode === 'view'}
             onChange={(e) => onUpdate({ quantity: Number(e.target.value) || 0 })}
-            className="w-full rounded border border-slate-300 px-2 py-1.5 text-sm text-right disabled:bg-slate-50"
+            style={{ textAlign: 'right' }}
           />
         </div>
-        <div className="col-span-4">
-          <label className="block text-[11px] text-slate-500 mb-0.5">単価</label>
+        <div>
+          <div className="form-label">単価（円）</div>
           <input
+            className={cn('input')}
             type="number"
             value={item.unitPrice}
             disabled={mode === 'view'}
             onChange={(e) => onUpdate({ unitPrice: Number(e.target.value) || 0 })}
-            className={cn(
-              'w-full rounded border px-2 py-1.5 text-sm text-right disabled:bg-slate-50',
-              diffLevel === 'error' ? 'bg-red-50 border-red-300' : '',
-              diffLevel === 'warning' ? 'bg-yellow-50 border-yellow-300' : '',
-              diffLevel === 'ok' || diffLevel === 'unknown' ? 'border-slate-300' : '',
-            )}
+            style={{ textAlign: 'right', ...priceInputStyle }}
           />
         </div>
       </div>
 
-      <div className="flex items-center justify-between text-xs text-slate-600">
-        <div className="text-slate-500">
-          小計: <span className="text-slate-900 font-semibold">{formatYen(item.unitPrice * item.quantity)}</span>
+      {/* Expected price indicator */}
+      {expected && expected.expectedPrice !== null && (
+        <div
+          className="flex items-center justify-between"
+          style={{
+            marginTop: 10,
+            padding: '8px 12px',
+            background: 'var(--bg-muted)',
+            borderRadius: 'var(--r-sm)',
+            fontSize: 12.5,
+          }}
+        >
+          <div className="text-muted-foreground" style={{ color: 'var(--text-muted)' }}>
+            小計:{' '}
+            <span style={{ color: 'var(--text)', fontWeight: 600 }}>
+              {formatYen(item.unitPrice * item.quantity)}
+            </span>
+          </div>
+          <PriceDiffBadge level={diffLevel} expected={expected} actual={item.unitPrice} />
         </div>
-        {expected && <PriceDiffBadge level={diffLevel} expected={expected} actual={item.unitPrice} />}
-      </div>
+      )}
 
+      {/* All fields */}
       {showAllFields && (
-        <div className="mt-2 pt-2 border-t border-slate-100">
-          <div className="text-[11px] text-slate-400 mb-1">詳細12項目（読み取り専用）</div>
-          <div className="grid grid-cols-3 gap-x-3 gap-y-1 text-[11px]">
+        <div
+          style={{
+            marginTop: 10,
+            paddingTop: 10,
+            borderTop: '1px solid var(--border)',
+          }}
+        >
+          <div style={{ fontSize: 11, color: 'var(--text-subtle)', marginBottom: 6 }}>
+            詳細12項目（読み取り専用）
+          </div>
+          <div
+            style={{
+              display: 'grid',
+              gridTemplateColumns: '1fr 1fr 1fr',
+              gap: '4px 12px',
+              fontSize: 11.5,
+            }}
+          >
             {ALL_FIELD_LABELS.map((label) => (
               <div key={label} className="flex justify-between">
-                <span className="text-slate-500">{label}</span>
-                <span className="text-slate-700">-</span>
+                <span style={{ color: 'var(--text-subtle)' }}>{label}</span>
+                <span style={{ color: 'var(--text-muted)' }}>-</span>
               </div>
             ))}
           </div>
         </div>
       )}
-    </li>
+    </div>
   );
 }

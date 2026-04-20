@@ -20,18 +20,13 @@ export function StatusFilter({
   onChange: (v: FilterValue) => void;
 }) {
   return (
-    <div className="inline-flex rounded-md border border-slate-200 bg-white p-1 shadow-sm">
+    <div className="pills">
       {ITEMS.map((it) => (
         <button
           key={it.value}
           type="button"
           onClick={() => onChange(it.value)}
-          className={cn(
-            'rounded px-3 py-1.5 text-sm font-medium transition',
-            value === it.value
-              ? 'bg-blue-600 text-white'
-              : 'text-slate-600 hover:bg-slate-100',
-          )}
+          className={cn('pill', value === it.value && 'active')}
         >
           {it.label}
         </button>

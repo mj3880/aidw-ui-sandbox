@@ -59,26 +59,29 @@ export function SearchCombobox({
   );
 
   return (
-    <div ref={wrapRef} className={cn('relative', className)}>
+    <div ref={wrapRef} className={cn('searchbox', className)}>
       <button
         type="button"
         disabled={disabled}
         onClick={() => setOpen((v) => !v)}
         className={cn(
-          'w-full flex items-center justify-between rounded-md border border-slate-300 bg-white px-3 py-2 text-left text-sm',
-          'hover:border-slate-400 focus:outline-none focus:ring-2 focus:ring-blue-500',
+          'input flex items-center justify-between text-left',
           disabled && 'opacity-60 cursor-not-allowed',
         )}
       >
         <span className="truncate">
-          {selected ? selected.label : <span className="text-slate-400">{placeholder}</span>}
+          {selected ? (
+            selected.label
+          ) : (
+            <span style={{ color: 'var(--text-subtle)' }}>{placeholder}</span>
+          )}
         </span>
-        <Search className="size-4 text-slate-400 shrink-0 ml-2" />
+        <Search className="size-4 shrink-0 ml-2" style={{ color: 'var(--text-subtle)' }} />
       </button>
 
       {open && !disabled && (
-        <div className="absolute z-20 mt-1 w-full rounded-md border border-slate-200 bg-white shadow-lg">
-          <div className="p-2 border-b border-slate-100">
+        <div className="search-results">
+          <div className="p-2" style={{ borderBottom: '1px solid var(--border)' }}>
             <input
               autoFocus
               type="text"
@@ -89,12 +92,15 @@ export function SearchCombobox({
                 onQueryChange?.(v);
               }}
               placeholder="検索キーワードを入力"
-              className="w-full rounded border border-slate-200 px-2 py-1 text-sm focus:outline-none focus:ring-1 focus:ring-blue-500"
+              className="input"
+              style={{ padding: '6px 10px', fontSize: 13 }}
             />
           </div>
-          <ul className="max-h-72 overflow-y-auto">
+          <ul>
             {filtered.length === 0 && (
-              <li className="px-3 py-4 text-center text-xs text-slate-400">候補がありません</li>
+              <li className="px-3 py-4 text-center text-[12px]" style={{ color: 'var(--text-subtle)' }}>
+                候補がありません
+              </li>
             )}
             {filtered.slice(0, 50).map((opt) => (
               <li key={opt.value}>
@@ -105,24 +111,13 @@ export function SearchCombobox({
                     setOpen(false);
                     setQuery('');
                   }}
-                  className={cn(
-                    'w-full text-left px-3 py-2 text-sm hover:bg-blue-50',
-                    opt.value === value && 'bg-blue-50 font-semibold',
-                  )}
+                  className={cn('search-item', opt.value === value && 'priority')}
                 >
-                  <div className="flex items-center justify-between gap-2">
-                    <div className="min-w-0">
-                      <div className="truncate">{opt.label}</div>
-                      {opt.sublabel && (
-                        <div className="text-xs text-slate-500 truncate">{opt.sublabel}</div>
-                      )}
-                    </div>
-                    {opt.badge && (
-                      <span className="shrink-0 rounded bg-amber-100 text-amber-800 text-[10px] font-semibold px-1.5 py-0.5">
-                        {opt.badge}
-                      </span>
-                    )}
+                  <div className="min-w-0 flex flex-col gap-0.5">
+                    <div className="truncate">{opt.label}</div>
+                    {opt.sublabel && <div className="code truncate">{opt.sublabel}</div>}
                   </div>
+                  {opt.badge && <span className="pri-tag">{opt.badge}</span>}
                 </button>
               </li>
             ))}

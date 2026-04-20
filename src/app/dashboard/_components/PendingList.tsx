@@ -7,6 +7,7 @@ import { selectPendingTopN } from '@/lib/next-fax-selector';
 import { formatElapsed, formatDateTime } from '@/lib/elapsed-time-formatter';
 import { getCustomerName } from '@/lib/master-repository';
 import { toast } from 'sonner';
+import { ChevronRight, Check, FileText } from 'lucide-react';
 
 export function PendingList() {
   const requests = useStore((s) => s.requests);
@@ -35,45 +36,63 @@ export function PendingList() {
   };
 
   return (
-    <section className="space-y-3">
-      <div className="flex items-center justify-between">
-        <h2 className="text-base font-semibold text-slate-800">
-          自分宛て・チーム宛ての未対応依頼（最新10件）
-        </h2>
-        <span className="text-xs text-slate-500">{items.length}件</span>
+    <section className="card">
+      <div className="card-header">
+        <h2>未対応の依頼（最新10件）</h2>
+        <span className="text-[12px]" style={{ color: 'var(--text-muted)' }}>
+          自分 または {auth?.user.teamId ?? '-'} 宛 · {items.length}件
+        </span>
       </div>
-      <div className="bg-white border border-slate-200 rounded-md overflow-hidden">
-        {items.length === 0 ? (
-          <div className="p-6 text-center text-sm text-slate-500">未対応依頼はありません</div>
-        ) : (
-          <ul className="divide-y divide-slate-100">
-            {items.map((r) => (
-              <li key={r.requestId}>
-                <button
-                  type="button"
+      {items.length === 0 ? (
+        <div className="empty">
+          <div className="e-ic">
+            <Check className="size-5" />
+          </div>
+          <h3>すべての依頼に対応済みです</h3>
+          <p>新しい依頼が届くとここに表示されます</p>
+        </div>
+      ) : (
+        <table className="t">
+          <thead>
+            <tr>
+              <th style={{ width: 110 }}>種別</th>
+              <th>取引先</th>
+              <th style={{ width: 180 }}>受信時刻</th>
+              <th style={{ width: 120 }}>経過</th>
+              <th style={{ width: 40 }}></th>
+            </tr>
+          </thead>
+          <tbody>
+            {items.map((r) => {
+              const name = masters ? getCustomerName(masters, r.customerId) : r.customerId;
+              return (
+                <tr
+                  key={r.requestId}
                   onClick={() => handleClick(r.requestId)}
-                  className="w-full flex items-center gap-3 px-4 py-3 hover:bg-slate-50 text-left"
+                  style={{ cursor: 'pointer' }}
+                  onMouseEnter={(e) => (e.currentTarget.style.background = 'var(--bg-muted)')}
+                  onMouseLeave={(e) => (e.currentTarget.style.background = '')}
                 >
-                  <span className="inline-flex items-center rounded bg-blue-100 text-blue-800 text-[11px] font-semibold px-2 py-0.5 w-14 justify-center">
-                    FAX
-                  </span>
-                  <div className="flex-1 min-w-0">
-                    <div className="text-sm font-medium text-slate-900 truncate">
-                      {masters ? getCustomerName(masters, r.customerId) : r.customerId}
-                    </div>
-                    <div className="text-xs text-slate-500">
-                      受信: {formatDateTime(r.receivedAt)}
-                    </div>
-                  </div>
-                  <div className="text-xs text-slate-600 shrink-0">
-                    {formatElapsed(r.receivedAt)}
-                  </div>
-                </button>
-              </li>
-            ))}
-          </ul>
-        )}
-      </div>
+                  <td>
+                    <span className="badge badge-neutral">
+                      <FileText className="size-3" /> FAX
+                    </span>
+                  </td>
+                  <td>
+                    <div className="font-medium">{name}</div>
+                    <div className="code">{r.pdfFile}</div>
+                  </td>
+                  <td style={{ color: 'var(--text-muted)' }}>{formatDateTime(r.receivedAt)}</td>
+                  <td style={{ color: 'var(--text-muted)' }}>{formatElapsed(r.receivedAt)}</td>
+                  <td style={{ color: 'var(--text-subtle)' }}>
+                    <ChevronRight className="size-3.5" />
+                  </td>
+                </tr>
+              );
+            })}
+          </tbody>
+        </table>
+      )}
     </section>
   );
 }

@@ -5,6 +5,7 @@ import { AppShell } from '@/components/AppShell';
 import { useStore } from '@/store/store';
 import { StatusFilter, type FilterValue } from './_components/StatusFilter';
 import { RequestCard } from './_components/RequestCard';
+import { List } from 'lucide-react';
 
 type SortKey = 'deliveryDate' | 'arrivalDate' | 'receivedAt';
 type SortOrder = 'asc' | 'desc';
@@ -35,15 +36,50 @@ export default function FaxListPage() {
 
   return (
     <AppShell>
-      <div className="p-6 space-y-4 max-w-6xl">
-        <div className="flex items-center justify-between">
-          <h1 className="text-xl font-bold text-slate-900">FAX確認依頼一覧</h1>
-          <div className="text-xs text-slate-500">{filtered.length}件 / 全{requests.length}件</div>
+      <div style={{ padding: 28, display: 'flex', flexDirection: 'column', gap: 18 }}>
+        <div
+          style={{
+            display: 'flex',
+            justifyContent: 'space-between',
+            alignItems: 'flex-end',
+            gap: 20,
+          }}
+        >
+          <div>
+            <h2
+              style={{
+                fontSize: 22,
+                fontWeight: 600,
+                letterSpacing: '-0.02em',
+                margin: '0 0 4px',
+              }}
+            >
+              FAX確認依頼一覧
+            </h2>
+            <p style={{ color: 'var(--text-muted)', fontSize: 14, margin: 0 }}>
+              {filtered.length}件 / 全{requests.length}件
+            </p>
+          </div>
         </div>
-        <div className="flex items-center gap-3 flex-wrap">
+
+        <div className="flex items-center justify-between flex-wrap gap-3">
           <StatusFilter value={filter} onChange={setFilter} />
-          <div className="inline-flex items-center gap-2 rounded-md border border-slate-200 bg-white px-2 py-1 shadow-sm">
-            <label htmlFor="fax-sort-key" className="text-xs text-slate-500">並び順</label>
+          <div
+            className="flex items-center gap-2"
+            style={{
+              background: 'var(--bg-elev)',
+              border: '1px solid var(--border)',
+              borderRadius: 'var(--r-sm)',
+              padding: '4px 10px',
+              boxShadow: 'var(--shadow-sm)',
+            }}
+          >
+            <label
+              htmlFor="fax-sort-key"
+              style={{ fontSize: 12, color: 'var(--text-muted)' }}
+            >
+              並び順
+            </label>
             <select
               id="fax-sort-key"
               value={sortKey}
@@ -51,7 +87,8 @@ export default function FaxListPage() {
                 const v = e.target.value;
                 if (isSortKey(v)) setSortKey(v);
               }}
-              className="text-sm bg-transparent focus:outline-none"
+              className="select"
+              style={{ width: 'auto', padding: '4px 6px', border: 'none', background: 'transparent' }}
             >
               {SORT_OPTIONS.map((o) => (
                 <option key={o.value} value={o.value}>
@@ -62,7 +99,7 @@ export default function FaxListPage() {
             <button
               type="button"
               onClick={() => setSortOrder((p) => (p === 'asc' ? 'desc' : 'asc'))}
-              className="rounded px-2 py-0.5 text-sm text-slate-700 hover:bg-slate-100"
+              className="btn btn-ghost btn-sm"
               aria-label={sortOrder === 'asc' ? '昇順' : '降順'}
               title={sortOrder === 'asc' ? '昇順 (古い→新しい)' : '降順 (新しい→古い)'}
             >
@@ -70,18 +107,29 @@ export default function FaxListPage() {
             </button>
           </div>
         </div>
+
         {filtered.length === 0 ? (
-          <div className="bg-white border border-slate-200 rounded-md p-10 text-center text-sm text-slate-500">
-            該当する依頼はありません
+          <div className="card">
+            <div className="empty">
+              <div className="e-ic">
+                <List className="size-5" />
+              </div>
+              <h3>該当する依頼はありません</h3>
+              <p>フィルタ条件を変更してください</p>
+            </div>
           </div>
         ) : (
-          <ul className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
+          <div
+            style={{
+              display: 'grid',
+              gridTemplateColumns: 'repeat(auto-fill, minmax(340px, 1fr))',
+              gap: 'var(--density-gap)',
+            }}
+          >
             {filtered.map((r) => (
-              <li key={r.requestId}>
-                <RequestCard request={r} masters={masters} />
-              </li>
+              <RequestCard key={r.requestId} request={r} masters={masters} />
             ))}
-          </ul>
+          </div>
         )}
       </div>
     </AppShell>

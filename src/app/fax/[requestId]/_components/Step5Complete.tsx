@@ -1,10 +1,10 @@
 'use client';
 
 import { useRouter } from 'next/navigation';
+import { ArrowRight, Check, List } from 'lucide-react';
+import { toast } from 'sonner';
 import { useStore } from '@/store/store';
 import { selectNextPendingFax } from '@/lib/next-fax-selector';
-import { CheckCircle2 } from 'lucide-react';
-import { toast } from 'sonner';
 
 export function Step5Complete() {
   const router = useRouter();
@@ -25,26 +25,52 @@ export function Step5Complete() {
   };
 
   return (
-    <div className="p-6 space-y-6 flex flex-col items-center text-center">
-      <CheckCircle2 className="size-16 text-emerald-500" />
-      <div>
-        <h2 className="text-xl font-bold text-slate-900">承認が完了しました</h2>
-        <p className="text-sm text-slate-500 mt-1">この依頼は「対応済み」として保存されました</p>
+    <div style={{ textAlign: 'center', padding: '40px 20px' }}>
+      <div
+        style={{
+          width: 68,
+          height: 68,
+          borderRadius: '50%',
+          background: 'var(--status-completed-bg)',
+          color: 'var(--status-completed)',
+          display: 'grid',
+          placeItems: 'center',
+          margin: '0 auto 18px',
+        }}
+      >
+        <Check className="size-8" />
       </div>
-      <div className="flex gap-3">
-        <button
-          type="button"
-          onClick={handleNext}
-          className="rounded-md bg-blue-600 text-white px-5 py-2.5 text-sm font-semibold hover:bg-blue-700"
-        >
-          次のFAXへ
+      <h2
+        style={{
+          margin: '0 0 8px',
+          fontSize: 20,
+          fontWeight: 600,
+          letterSpacing: '-0.01em',
+        }}
+      >
+        承認が完了しました
+      </h2>
+      <p
+        style={{
+          color: 'var(--text-muted)',
+          margin: '0 0 24px',
+          fontSize: 14,
+        }}
+      >
+        この依頼は「対応済み」として記録されました。
+        <br />
+        続けて次の依頼を処理できます。
+      </p>
+      <div className="flex gap-2.5 justify-center">
+        <button type="button" onClick={handleNext} className="btn btn-primary btn-lg">
+          次のFAXへ <ArrowRight className="size-4" />
         </button>
         <button
           type="button"
           onClick={() => router.push('/fax')}
-          className="rounded-md border border-slate-300 bg-white px-5 py-2.5 text-sm font-semibold text-slate-700 hover:bg-slate-50"
+          className="btn btn-secondary btn-lg"
         >
-          一覧へ戻る
+          <List className="size-3.5" /> 一覧へ
         </button>
       </div>
     </div>
