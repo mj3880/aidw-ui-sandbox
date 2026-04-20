@@ -9,6 +9,18 @@ import { useStore } from '@/store/store';
 import { getCustomerName } from '@/lib/master-repository';
 import { formatDateTime } from '@/lib/elapsed-time-formatter';
 
+const CHIP_LABEL_STYLE: React.CSSProperties = {
+  display: 'inline-flex',
+  padding: '2px 8px',
+  backgroundColor: 'var(--bg-elev)',
+  border: '1px solid var(--border)',
+  borderRadius: 'var(--r-sm)',
+  fontSize: 11,
+  color: 'var(--text-muted)',
+  whiteSpace: 'nowrap',
+  flexShrink: 0,
+};
+
 export function RequestCard({
   request,
   masters,
@@ -62,7 +74,6 @@ export function RequestCard({
             fontWeight: 600,
             letterSpacing: '-0.01em',
             lineHeight: 1.35,
-            minWidth: 0,
           }}
           title={customerName}
         >
@@ -86,18 +97,18 @@ export function RequestCard({
           fontSize: 12.5,
         }}
       >
-        <KV label="納入日" value={request.deliveryDate} />
-        <KV label="受信日時" value={formatDateTime(request.receivedAt)} />
-        <KV label="拠点着日" value={request.arrivalDate} />
-        <KV label="対応者" value={request.status === 'pending' ? '-' : assigneeDisplay} />
-        <KV label="明細" value={`${request.lineItems.length} 件`} />
-        <KV label="要確認明細" value={`${lowConfidenceCount} 件`} />
+        <LabeledValue label="納入日" value={request.deliveryDate} />
+        <LabeledValue label="受信日時" value={formatDateTime(request.receivedAt)} />
+        <LabeledValue label="拠点着日" value={request.arrivalDate} />
+        <LabeledValue label="対応者" value={request.status === 'pending' ? '-' : assigneeDisplay} />
+        <LabeledValue label="明細" value={`${request.lineItems.length} 件`} />
+        <LabeledValue label="要確認明細" value={`${lowConfidenceCount} 件`} />
       </div>
     </button>
   );
 }
 
-function KV({ label, value }: { label: string; value: string }) {
+function LabeledValue({ label, value }: { label: string; value: string }) {
   return (
     <div
       style={{
@@ -107,21 +118,7 @@ function KV({ label, value }: { label: string; value: string }) {
         minWidth: 0,
       }}
     >
-      <span
-        style={{
-          display: 'inline-flex',
-          padding: '2px 8px',
-          backgroundColor: 'var(--bg-elev)',
-          border: '1px solid var(--border)',
-          borderRadius: 'var(--r-sm)',
-          fontSize: 11,
-          color: 'var(--text-muted)',
-          whiteSpace: 'nowrap',
-          flexShrink: 0,
-        }}
-      >
-        {label}
-      </span>
+      <span style={CHIP_LABEL_STYLE}>{label}</span>
       <span className="truncate font-medium" style={{ color: 'var(--text)', minWidth: 0 }}>
         {value}
       </span>
