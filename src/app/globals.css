@@ -111,7 +111,6 @@ body {
   color: var(--text);
   background: var(--bg);
   -webkit-font-smoothing: antialiased;
-  font-feature-settings: 'cv11', 'ss01';
 }
 
 body {
@@ -172,14 +171,14 @@ textarea {
   margin: 0;
   letter-spacing: -0.01em;
 }
-.app-header .bc {
+.app-header .breadcrumb {
   color: var(--text-muted);
   font-size: 13px;
   display: flex;
   align-items: center;
   gap: 6px;
 }
-.app-header .bc .sep {
+.app-header .breadcrumb .sep {
   color: var(--text-subtle);
 }
 .app-body {
@@ -305,16 +304,16 @@ textarea {
   font-weight: 600;
   font-size: 12px;
 }
-.sidebar-footer .who {
+.sidebar-footer .user-info {
   flex: 1;
   min-width: 0;
 }
-.sidebar-footer .who .n {
+.sidebar-footer .user-info .user-name {
   font-size: 13px;
   font-weight: 500;
   color: var(--sidebar-text);
 }
-.sidebar-footer .who .t {
+.sidebar-footer .user-info .user-team {
   font-size: 11px;
   color: var(--sidebar-text-muted);
 }
@@ -330,7 +329,7 @@ textarea {
   font-size: 13.5px;
   font-weight: 500;
   border: 1px solid transparent;
-  transition: all 0.15s;
+  transition: background-color 0.15s, border-color 0.15s, color 0.15s, box-shadow 0.15s, opacity 0.15s;
   white-space: nowrap;
   background: none;
   color: inherit;
@@ -390,7 +389,7 @@ textarea {
   border-radius: var(--r-sm);
   font-size: 13.5px;
   color: var(--text);
-  transition: all 0.15s;
+  transition: background-color 0.15s, border-color 0.15s, box-shadow 0.15s, opacity 0.15s;
 }
 .input:focus,
 .textarea:focus,
@@ -426,6 +425,15 @@ textarea {
   border: 1px solid var(--border);
   border-radius: var(--r-md);
   box-shadow: var(--shadow-sm);
+}
+/* ホバー装飾はクリック可能 card（button.card）に限定 */
+button.card {
+  transition: transform 0.12s, box-shadow 0.12s, border-color 0.12s;
+}
+button.card:hover {
+  transform: translateY(-1px);
+  box-shadow: var(--shadow-md);
+  border-color: var(--border-strong);
 }
 .card-pad {
   padding: var(--density-pad-y) var(--density-pad-x);
@@ -646,12 +654,12 @@ textarea {
 }
 
 /* === Tables === */
-table.t {
+table.data {
   width: 100%;
   border-collapse: collapse;
   font-size: 13.5px;
 }
-table.t th {
+table.data th {
   text-align: left;
   font-weight: 500;
   color: var(--text-muted);
@@ -662,12 +670,12 @@ table.t th {
   letter-spacing: 0.02em;
   text-transform: uppercase;
 }
-table.t td {
+table.data td {
   padding: 12px 14px;
   border-bottom: 1px solid var(--border);
   vertical-align: middle;
 }
-table.t tr:last-child td {
+table.data tr:last-child td {
   border-bottom: none;
 }
 
@@ -773,7 +781,7 @@ table.t tr:last-child td {
   text-align: center;
   color: var(--text-muted);
 }
-.empty .e-ic {
+.empty .entry-icon {
   width: 56px;
   height: 56px;
   border-radius: 50%;

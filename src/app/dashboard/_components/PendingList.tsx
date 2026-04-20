@@ -45,14 +45,14 @@ export function PendingList() {
       </div>
       {items.length === 0 ? (
         <div className="empty">
-          <div className="e-ic">
+          <div className="entry-icon">
             <Check className="size-5" />
           </div>
           <h3>すべての依頼に対応済みです</h3>
           <p>新しい依頼が届くとここに表示されます</p>
         </div>
       ) : (
-        <table className="t">
+        <table className="data">
           <thead>
             <tr>
               <th style={{ width: 110 }}>種別</th>

@@ -111,7 +111,7 @@ export default function FaxListPage() {
         {filtered.length === 0 ? (
           <div className="card">
             <div className="empty">
-              <div className="e-ic">
+              <div className="entry-icon">
                 <List className="size-5" />
               </div>
               <h3>該当する依頼はありません</h3>

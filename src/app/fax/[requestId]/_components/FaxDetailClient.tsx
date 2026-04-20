@@ -20,14 +20,25 @@ import {
   type RequestDraft,
   type StepKey,
 } from './types';
-import type { FaxRequest } from '@/types/request';
-import { STATUS_LABEL } from '@/types/request';
+import { STATUS_BADGE_CLASS, STATUS_LABEL } from '@/types/request';
 
-const BADGE_CLASS: Record<FaxRequest['status'], string> = {
-  pending: 'badge badge-pending',
-  in_progress: 'badge badge-inprogress',
-  done: 'badge badge-completed',
-};
+const RIGHT_PANEL_WIDTH = 520;
+
+const EDIT_STEP_DEFS: { n: number; label: string }[] = [
+  { n: 1, label: '取引先の確認' },
+  { n: 2, label: '納品先の確認' },
+  { n: 3, label: '明細の確認' },
+  { n: 4, label: '変更内容の確認' }, // Step4 は Modal
+  { n: 5, label: '完了' },
+];
+
+// view モード（status==='done'）では全ステップ完了済み扱い。到達不能な中間ステップを描画する意味がないので簡略化。
+const VIEW_STEP_DEFS: { n: number; label: string }[] = [
+  { n: 1, label: '取引先の確認' },
+  { n: 2, label: '納品先の確認' },
+  { n: 3, label: '明細の確認' },
+  { n: 5, label: '完了' },
+];
 
 export function FaxDetailClient({ requestId }: { requestId: string }) {
   const router = useRouter();
@@ -62,6 +73,15 @@ export function FaxDetailClient({ requestId }: { requestId: string }) {
     }
   }, [loaded, request, requestId, router]);
 
+  const currentN = useMemo<number>(() => {
+    if (mode === 'view') return 5;
+    if (showModal) return 4;
+    if (step === 'step1') return 1;
+    if (step === 'step2') return 2;
+    if (step === 'step3') return 3;
+    return 5;
+  }, [mode, step, showModal]);
+
   if (!loaded || !request || !draft) {
     return (
       <AppShell>
@@ -83,28 +103,14 @@ export function FaxDetailClient({ requestId }: { requestId: string }) {
     toast.success('承認しました');
   };
 
-  const stepDefs: { n: number; key: StepKey; label: string }[] = [
-    { n: 1, key: 'step1', label: '取引先の確認' },
-    { n: 2, key: 'step2', label: '納品先の確認' },
-    { n: 3, key: 'step3', label: '明細の確認' },
-    { n: 4, key: 'step3', label: '変更内容の確認' }, // Step4 は Modal
-    { n: 5, key: 'step5', label: '完了' },
-  ];
-
-  const currentN: number = (() => {
-    if (showModal) return 4;
-    if (step === 'step1') return 1;
-    if (step === 'step2') return 2;
-    if (step === 'step3') return 3;
-    return 5;
-  })();
+  const stepDefs = mode === 'view' ? VIEW_STEP_DEFS : EDIT_STEP_DEFS;
 
   return (
     <AppShell>
       <div
         style={{
           display: 'grid',
-          gridTemplateColumns: '1fr 520px',
+          gridTemplateColumns: `1fr ${RIGHT_PANEL_WIDTH}px`,
           height: 'calc(100vh - 60px)',
           minHeight: 0,
         }}
@@ -165,7 +171,7 @@ export function FaxDetailClient({ requestId }: { requestId: string }) {
               <ChevronLeft className="size-3.5" /> 一覧へ戻る
             </button>
             <div className="flex items-center gap-2.5">
-              <span className={BADGE_CLASS[request.status]}>
+              <span className={STATUS_BADGE_CLASS[request.status]}>
                 <span className="dot" />
                 {STATUS_LABEL[request.status]}
               </span>

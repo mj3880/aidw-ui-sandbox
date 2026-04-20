@@ -7,7 +7,7 @@ import { SearchCombobox, type ComboboxOption } from '@/components/SearchCombobox
 import { PriceDiffBadge } from '@/components/PriceDiffBadge';
 import { resolveProductCandidates } from '@/lib/product-mapping-resolver';
 import { computeExpectedPrice, classifyDiff, type DiffLevel } from '@/lib/price-calculator';
-import { cn, formatYen } from '@/lib/utils';
+import { formatYen } from '@/lib/utils';
 import type { Mode, RequestDraft } from './types';
 import type { LineItem } from '@/types/request';
 
@@ -52,7 +52,10 @@ export function Step3LineItems({ draft, setDraft, onBack, onConfirm, mode }: Pro
     });
   };
 
-  const lowCount = draft.lineItems.filter((li) => li.isLowConfidence).length;
+  const lowCount = useMemo(
+    () => draft.lineItems.filter((li) => li.isLowConfidence).length,
+    [draft.lineItems],
+  );
 
   return (
     <div className="card card-pad">
@@ -261,7 +264,7 @@ function LineItemRow({
         <div>
           <div className="form-label">単価（円）</div>
           <input
-            className={cn('input')}
+            className="input"
             type="number"
             value={item.unitPrice}
             disabled={mode === 'view'}
@@ -271,27 +274,27 @@ function LineItemRow({
         </div>
       </div>
 
-      {/* Expected price indicator */}
-      {expected && expected.expectedPrice !== null && (
-        <div
-          className="flex items-center justify-between"
-          style={{
-            marginTop: 10,
-            padding: '8px 12px',
-            background: 'var(--bg-muted)',
-            borderRadius: 'var(--r-sm)',
-            fontSize: 12.5,
-          }}
-        >
-          <div className="text-muted-foreground" style={{ color: 'var(--text-muted)' }}>
-            小計:{' '}
-            <span style={{ color: 'var(--text)', fontWeight: 600 }}>
-              {formatYen(item.unitPrice * item.quantity)}
-            </span>
-          </div>
-          <PriceDiffBadge level={diffLevel} expected={expected} actual={item.unitPrice} />
+      {/* Subtotal (+ expected price indicator when available) */}
+      <div
+        className="flex items-center justify-between"
+        style={{
+          marginTop: 10,
+          padding: '8px 12px',
+          background: 'var(--bg-muted)',
+          borderRadius: 'var(--r-sm)',
+          fontSize: 12.5,
+        }}
+      >
+        <div style={{ color: 'var(--text-muted)' }}>
+          小計:{' '}
+          <span style={{ color: 'var(--text)', fontWeight: 600 }}>
+            {formatYen(item.unitPrice * item.quantity)}
+          </span>
         </div>
-      )}
+        {expected && expected.expectedPrice !== null && (
+          <PriceDiffBadge level={diffLevel} expected={expected} actual={item.unitPrice} />
+        )}
+      </div>
 
       {/* All fields */}
       {showAllFields && (

@@ -31,7 +31,7 @@ export const STATUS_LABEL: Record<RequestStatus, string> = {
 };
 
 export const STATUS_BADGE_CLASS: Record<RequestStatus, string> = {
-  pending: 'bg-slate-200 text-slate-700',
-  in_progress: 'bg-amber-100 text-amber-800',
-  done: 'bg-emerald-100 text-emerald-800',
+  pending: 'badge badge-pending',
+  in_progress: 'badge badge-inprogress',
+  done: 'badge badge-completed',
 };

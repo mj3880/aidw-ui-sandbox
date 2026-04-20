@@ -96,9 +96,9 @@ export function SidebarNav() {
       </nav>
       <div className="sidebar-footer">
         <div className="avatar">{initial}</div>
-        <div className="who">
-          <div className="n">{displayName}</div>
-          <div className="t">{auth?.user.teamId ?? '-'}</div>
+        <div className="user-info">
+          <div className="user-name">{displayName}</div>
+          <div className="user-team">{auth?.user.teamId ?? '-'}</div>
         </div>
       </div>
     </aside>

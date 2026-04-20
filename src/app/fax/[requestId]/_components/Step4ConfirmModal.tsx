@@ -43,7 +43,7 @@ export function Step4ConfirmModal({ diffs, onCancel, onApprove }: Props) {
               変更項目はありません（OCR結果のまま承認）
             </div>
           ) : (
-            <table className="t">
+            <table className="data">
               <thead>
                 <tr>
                   <th>項目</th>

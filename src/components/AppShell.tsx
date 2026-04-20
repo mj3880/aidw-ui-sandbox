@@ -13,7 +13,7 @@ export function AppShell({ children }: { children: React.ReactNode }) {
         <main className="app-main">
           <header className="app-header">
             <h1>AIDW HITL Mock</h1>
-            <div className="bc">
+            <div className="breadcrumb">
               <span>{auth?.email}</span>
             </div>
           </header>
