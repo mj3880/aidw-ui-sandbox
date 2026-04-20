@@ -3,17 +3,11 @@
 import { useRouter } from 'next/navigation';
 import { toast } from 'sonner';
 import type { FaxRequest } from '@/types/request';
-import { STATUS_LABEL } from '@/types/request';
+import { STATUS_BADGE_CLASS, STATUS_LABEL } from '@/types/request';
 import type { Masters } from '@/types/master';
 import { useStore } from '@/store/store';
 import { getCustomerName } from '@/lib/master-repository';
 import { formatDateTime } from '@/lib/elapsed-time-formatter';
-
-const BADGE_CLASS: Record<FaxRequest['status'], string> = {
-  pending: 'badge badge-pending',
-  in_progress: 'badge badge-inprogress',
-  done: 'badge badge-completed',
-};
 
 export function RequestCard({
   request,
@@ -47,47 +41,33 @@ export function RequestCard({
       style={{
         padding: 'var(--density-pad-y) var(--density-pad-x)',
         cursor: 'pointer',
-        transition: 'transform 0.12s, box-shadow 0.12s, border-color 0.12s',
-      }}
-      onMouseEnter={(e) => {
-        e.currentTarget.style.transform = 'translateY(-1px)';
-        e.currentTarget.style.boxShadow = 'var(--shadow-md)';
-        e.currentTarget.style.borderColor = 'var(--border-strong)';
-      }}
-      onMouseLeave={(e) => {
-        e.currentTarget.style.transform = '';
-        e.currentTarget.style.boxShadow = '';
-        e.currentTarget.style.borderColor = '';
       }}
     >
       <div
         style={{
           display: 'flex',
-          justifyContent: 'space-between',
-          alignItems: 'flex-start',
+          alignItems: 'center',
           gap: 10,
+          minWidth: 0,
         }}
       >
-        <span className={BADGE_CLASS[request.status]}>
+        <span className={STATUS_BADGE_CLASS[request.status]} style={{ flexShrink: 0 }}>
           <span className="dot" />
           {STATUS_LABEL[request.status]}
         </span>
-        <span className="code truncate" title={request.pdfFile}>
-          {request.pdfFile}
+        <span
+          className="truncate"
+          style={{
+            fontSize: 15,
+            fontWeight: 600,
+            letterSpacing: '-0.01em',
+            lineHeight: 1.35,
+            minWidth: 0,
+          }}
+          title={customerName}
+        >
+          {customerName}
         </span>
-      </div>
-      <div
-        style={{
-          marginTop: 10,
-          fontSize: 15,
-          fontWeight: 600,
-          letterSpacing: '-0.01em',
-          lineHeight: 1.35,
-        }}
-        className="truncate"
-        title={customerName}
-      >
-        {customerName}
       </div>
       <div
         className="truncate"
@@ -119,11 +99,32 @@ export function RequestCard({
 
 function KV({ label, value }: { label: string; value: string }) {
   return (
-    <div>
-      <div style={{ fontSize: 11, color: 'var(--text-subtle)' }}>{label}</div>
-      <div className="font-medium" style={{ color: 'var(--text)' }}>
+    <div
+      style={{
+        display: 'flex',
+        alignItems: 'center',
+        gap: 6,
+        minWidth: 0,
+      }}
+    >
+      <span
+        style={{
+          display: 'inline-flex',
+          padding: '2px 8px',
+          backgroundColor: 'var(--bg-elev)',
+          border: '1px solid var(--border)',
+          borderRadius: 'var(--r-sm)',
+          fontSize: 11,
+          color: 'var(--text-muted)',
+          whiteSpace: 'nowrap',
+          flexShrink: 0,
+        }}
+      >
+        {label}
+      </span>
+      <span className="truncate font-medium" style={{ color: 'var(--text)', minWidth: 0 }}>
         {value}
-      </div>
+      </span>
     </div>
   );
 }
