@@ -213,6 +213,8 @@ export function classify(
 
 #### `none` / `multi` の MVP UI既定挙動（暫定・金曜ヒアリングで差替予定）
 
+> **本挙動は `/ocr-abstraction/[requestId]` 限定で維持。`/fax/[requestId]` は §追補「#4/#5 仮決定値に基づくUI挙動変更」参照**
+
 `none`（マスタ該当なし）および `multi`（複数候補ヒット）の項目は、MVP では以下の固定挙動とする。
 
 - **表示のみ・編集不可・承認不可**（入力UIを描画しない）
@@ -247,6 +249,8 @@ type OcrStore = {
 
 ## 既存 aidw-ui-mock との分離境界
 
+> ⚠️ 本節は §分離境界の解除宣言 で一部解除済み。最新は追補節参照。
+
 | 項目 | aidw-ui-mock | aidw-ocr-abstraction |
 |------|-------------|---------------------|
 | ルート | `/` `/fax/[requestId]` | `/ocr-abstraction` `/ocr-abstraction/[requestId]` |
@@ -270,6 +274,204 @@ type OcrStore = {
 - 重点5項目がすべて表示される
 - 一意確定項目が「確定」バッジ + トレース展開で根拠が見える
 - 該当なし/複数候補の項目が要確認として表示される
+
+---
+
+---
+
+# 追補: 追加スコープ3点の設計
+
+> **追補版**: requirements.md §追加スコープ に対応する設計追補。既存設計（ClientProfile 抽象 / 自動除外 / 重点5項目UI）は維持し、設定画面UI・`/fax/*` 反映・境界解除を追加する。
+
+---
+
+## 分離境界の解除宣言
+
+従来 design.md §「既存 aidw-ui-mock との分離境界」で宣言していた以下の方針を**解除**する:
+
+- 「共有しない: 型・store・マスタ・ユーティリティ」→ **store は共有**（currentProfileId を single source of truth 化）
+- 「相互 import は禁止」→ **`/fax/*` から本feature の型・lookup・profiles を import 可**
+- 「ルート分離: `/` `/fax/[requestId]` vs `/ocr-abstraction/*`」→ **`/fax/*` は本feature の currentProfileId に従うよう改修**
+
+### 解除後の範囲（触ってよい / いけない）
+
+| 範囲 | 可否 | 備考 |
+|------|------|------|
+| `src/app/fax/*`（既存 aidw-ui-mock の UI） | **可** | currentProfileId 連動のため改修 |
+| `src/store/store.ts`（既存 Zustand store） | **可**（拡張 or 合流） | `currentProfileId` を既存 store に合流 or 新 `ocr-store.ts` を共有参照 |
+| `src/types/request.ts` 等 | **可** | プロファイル情報フィールド追加等 |
+| `src/lib/*`（既存ロジック） | **可** | プロファイル連動ヘルパ追加時 |
+| テストファイル全般（`*.test.*` / `*.spec.*` / `__tests__/` / `tests/`） | **不可**（CLAUDE.md §3・AC-005-2 準拠） | プロトタイプ規約「テスト規約なし」維持 |
+| `samples/` 配下 | **不可**（CLAUDE.md §3） | 検証データ SSoT。再生成は `scripts/generate-requests.mjs` 経由 |
+| `public/samples/` `public/pdfjs/` | **不可**（CLAUDE.md §3） | 自動生成物 |
+| `node_modules/` | **不可** | 当然 |
+
+### store 共有の実装方針
+
+**採用案**: `src/store/ocr-store.ts`（本feature）を `/fax/*` 側からも import 可に変更し、`currentProfileId` は ocr-store 単独管理とする。既存 `src/store/store.ts` は改修せず、`/fax/*` コンポーネントで両 store を並行 subscribe する。
+
+- 理由: `store.ts` と `ocr-store.ts` の合流は YAGNI に反する（プロトタイプ規約）。両 store 並行参照で FR-M-9 は充足
+- persist 対象は ocr-store 側の `currentProfileId` のみ継続
+
+---
+
+## 設定画面UI設計（FR-M-6, FR-M-7, AC-M-6, AC-M-7）
+
+### ルート
+
+```
+/ocr-abstraction/settings   # 設定画面（新設）
+```
+
+### 画面構成
+
+- **上部**: プロファイル切替セレクタ（既存 `/ocr-abstraction` と同じコンポーネントを使い回す）
+- **中段: マスタ構造可視化セクション**
+  - 現在プロファイルの `masterSchema` を 4ブロック（customer / deliveryLocation / product / price）に分けて表示
+  - 各ブロック: ダミーマスタ1件を JSON 整形表示（`<pre>` ブロック）+ キー一覧を表形式で併記
+- **下段: OCR後データ構造可視化セクション**
+  - 現在プロファイルの `ocrSchema.rawShape` を JSON 整形表示
+  - 直下に「正規化後（OcrEnvelope形）」として、同プロファイルの `ocr-samples.ts` 先頭1件を `toEnvelope()` にかけた結果を JSON 整形表示
+  - 両者の対比で正規化前後の差が視認できること
+
+### 実装ファイル
+
+```
+src/app/ocr-abstraction/settings/page.tsx   # 新設
+```
+
+既存 `src/profiles/*` / `src/lib/ocr/*` / `src/store/ocr-store.ts` を読取専用で参照。設定画面自体は編集機能を持たない（可視化のみ）。
+
+---
+
+## `/fax/*` へのプロファイル切替反映設計（FR-M-8, FR-M-9, AC-M-8, AC-M-9）
+
+### 基本方針
+
+- `/fax` 一覧・`/fax/[requestId]` 詳細の既存ダミーデータ（`samples/fax/*.pdf` + localStorage）は維持
+- 追加で `currentProfileId` を subscribe し、プロファイル情報（displayName / masterSchema のキー等）を**画面ヘッダ or サイドバーで可視表示**
+- 可能な範囲で、プロファイルのマスタ（customer 等）を既存 `/fax/[requestId]` の SearchCombobox（customer 選択）の候補ソースに差替える
+
+### 反映範囲（優先度付き）
+
+| # | 反映箇所 | 優先度 | 実装概要 |
+|---|---------|--------|---------|
+| 1 | `/fax` 一覧ヘッダに現在プロファイル displayName を表示 | Must | `ocrStore.currentProfileId` を subscribe しヘッダに描画 |
+| 2 | `/fax/[requestId]` ヘッダに現在プロファイル displayName を表示 | Must | 同上 |
+| 3 | `/fax/[requestId]` の customer/product 選択 Combobox の候補を現在プロファイルの masters から差替 | Must | `PROFILES[currentProfileId].masterSchema.customer` 等を候補ソースに |
+| 3a | `/fax/[requestId]` の deliveryLocation Combobox の候補を現在プロファイルの masters から差替 | Must | `PROFILES[currentProfileId].masterSchema.deliveryLocation` を候補ソースに |
+| 3b | `/fax/[requestId]` の price 参照元を現在プロファイル masters（`masterSchema.price`）に差替 | Must | lookup.price(product, context) の参照元を切替 |
+| 4 | `/fax/[requestId]` の `none`/`multi` 項目を編集可能フィールド化 | Should（FR-S-3） | 既存編集UI（`Step3LineItems` 等）を流用 |
+| 5 | `/fax/[requestId]` の `unique` 項目も再確認・編集可化 | Should（FR-S-4） | 既存編集UI を流用、ただし「確定」バッジは残す |
+
+### プロファイル切替時の挙動
+
+- `/fax` 一覧または `/fax/[requestId]` 表示中にセレクタで切替 → 画面再描画
+- `/fax/[requestId]` の編集バッファ（メモリのみ）は切替時に破棄（プロトタイプ規約、簡潔性優先）
+- localStorage の承認済み FaxRequest スナップショットは破棄しない（CLAUDE.md §4.4 準拠）
+- プロファイル切替時、localStorage スナップショットの `customerId` / `deliveryLocationId` / `productId` が新 masters に不在な場合（§反映範囲表の対象フィールド全てで同挙動）、画面上は `(不明)` 表示 + `console.warn` を出力する。スナップショット自体は破棄しない（元プロファイルへ戻せば復元される）
+
+---
+
+## #4/#5 仮決定値に基づくUI挙動変更
+
+### 変更前（従来 design.md §UI設計）
+
+`none`（マスタ該当なし）および `multi`（複数候補ヒット）の項目は、MVP では以下の固定挙動:
+- 表示のみ・編集不可・承認不可
+- 「要人間確認」バッジを明示表示
+- 候補リスト（`multi`）は参考情報として併記、選択・保存操作なし
+
+### 変更後（仮決定値 #4・#5）
+
+- `none`: **編集可能フィールドとして描画**（人手入力可）。「要人間確認」バッジは残す
+- `multi`: **候補リストから選択可能**（Combobox or Radio）。選択時はバッファに反映。「要人間確認」バッジは残す
+- `unique`: **編集可能フィールドとして描画**（誤読再確認可）。「確定」バッジは残す（誤読疑義がある場合のみ上書き）
+
+### 適用範囲
+
+- `/fax/[requestId]`: 上記変更を全面適用（FR-S-3 / FR-S-4）
+- `/ocr-abstraction/[requestId]`: 既存 MVP 既定挙動（表示のみ）を**維持**（抽象レイヤー単体検証用のため）
+
+### 金曜ヒアリング後の差替可能性
+
+本仮決定値は analyst 草案であり、金曜ヒアリング後に以下差替が発生する可能性を明記:
+- #4: 確定不能項目は「エラー化」方針に差替 → 編集UI撤去
+- #5: OCR誤読は「再確認せず信じる」方針に差替 → `unique` 項目編集UI撤去
+
+具体的な差替手順:
+- #4 エラー化差替時: T-A05 削除のみ（T-A04 影響なし）
+- #5 再確認撤去差替時: T-A06 削除 + `/fax` unique 項目の readonly 復元
+
+---
+
+## ClientProfile/store 適用範囲の拡張
+
+### 変更前
+
+```
+ClientProfile 適用範囲: /ocr-abstraction/* のみ
+currentProfileId 参照元: src/store/ocr-store.ts（本feature専用）
+```
+
+### 変更後
+
+```
+ClientProfile 適用範囲: /ocr-abstraction/* + /fax/*
+currentProfileId 参照元: src/store/ocr-store.ts（single source of truth）
+ ├─ /ocr-abstraction/* : 従来通り参照
+ ├─ /ocr-abstraction/settings : 設定画面で参照 + セレクタ操作
+ └─ /fax/* : ヘッダ表示 + Combobox候補差替 + `none`/`multi`/`unique` 編集UI
+
+既存 src/store/store.ts: 改修なし（合流しない）
+```
+
+### データフロー
+
+```
+[ユーザー] → [セレクタ操作（/ocr-abstraction or /ocr-abstraction/settings or /fax/*）]
+              ↓
+         [ocr-store.setProfileId()]
+              ↓
+         [localStorage persist]
+              ↓
+    ┌─────────┼─────────┐
+    ↓         ↓         ↓
+[/ocr-abstraction/*]  [/ocr-abstraction/settings]  [/fax/*]
+ （既存UI）            （新設UI）                    （改修UI）
+    ↓         ↓         ↓
+  全画面で同一 currentProfileId に従った描画
+```
+
+---
+
+## CLAUDE.md §3 解除範囲の明示
+
+本追補により CLAUDE.md §3「触ってはいけない箇所」のうち、**一部項目の解釈を本feature限定で緩和**する:
+
+| 対象 | 従来の扱い | 本feature追補後 |
+|------|-----------|---------------|
+| テストファイル全般（`*.test.*` / `*.spec.*` / `__tests__/` / `tests/`） | 作成禁止（AC-005-2） | **変更なし・引き続き作成禁止**（プロトタイプ規約維持） |
+| `samples/` 配下 | 直接編集禁止 | **変更なし**（再生成は `scripts/generate-requests.mjs` 経由） |
+| `public/samples/` `public/pdfjs/` | 手動編集禁止 | **変更なし**（自動生成物） |
+| `node_modules/` | 当然禁止 | **変更なし** |
+| `src/app/fax/*`（CLAUDE.md §3には明記なし・§4 に仕様記載） | 改修可（§4.1〜§4.6 の既存実装判断は維持） | **可**（本feature追補で積極改修。§4.1〜§4.6 の実装判断は引き続き尊重） |
+| `src/store/store.ts` | 改修可 | **改修しない方針**（本feature追補では ocr-store.ts と並行参照で解決） |
+
+**重要**: テスト作成禁止（AC-005-2）・samples 不可侵・公開生成物不可侵は**本追補でも絶対に維持**する。CLAUDE.md §3 の本質（プロトタイプ規約「テスト規約なし」・自動生成物保護）は不変。
+
+---
+
+## 追加スコープの懸念と判断
+
+### 懸念: `/fax/*` と `/ocr-abstraction/*` の UI 統合範囲
+
+**判断**: **併存**（候補A採用、requirements.md §追加スコープ参照）
+
+- `/ocr-abstraction/*` は抽象レイヤー単体の検証用として残す（統合すると既存 `/fax/*` の複雑性に埋もれる）
+- `/fax/*` は本feature の currentProfileId に従う最小侵襲改修のみ
+- `/ocr-abstraction/settings` は両ルート群から参照される設定画面として新設（中立的位置づけ）
+- 金曜ヒアリング後、実クライアント要件次第で統合判断を再検討可能（現時点で統合は YAGNI）
 
 ---
 
