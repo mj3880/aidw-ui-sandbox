@@ -140,8 +140,9 @@ pnpm typecheck      # = npx tsc --noEmit
 
 ## 10. ブランチ・コミット運用
 
-- 開発ブランチ: `prototype/<feature>` 命名（例: `prototype/aidw-ui-mock`）
-- リモートなし（ローカル完結プロトタイプ運用）
+- 開発ブランチ: `prototype/<feature>` 命名（例: `prototype/aidw-ui-mock`、`prototype/aidw-ocr-abstraction`）
+- リモート: `origin: git@github.com:mj3880/aidw-ui-sandbox.git`（PR運用可）
+- PR作成は主の明示指示時のみ（`gh pr create` 経由、タイトル日本語可・HEREDOC本文）
 - コミットメッセージ: Conventional Commits 形式（日本語可）
   - `feat:` / `refactor:` / `chore:` / `fix:` / `docs:` 等
 - ファイルステージング: `git add -A` ではなく **個別指定**（不要ファイル混入防止）
