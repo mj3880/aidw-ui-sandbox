@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, useMemo, useState, Fragment } from 'react';
+import { useEffect, useMemo, useRef, useState, Fragment } from 'react';
 import { useRouter } from 'next/navigation';
 import { toast } from 'sonner';
 import { ChevronLeft } from 'lucide-react';
@@ -79,15 +79,19 @@ export function FaxDetailClient({ requestId }: { requestId: string }) {
 
   // プロファイル切替時は編集バッファを破棄し step1 に戻す（design.md §追補）。
   // localStorage の承認済みスナップショットは破棄しない（§4.4）。
+  // 初回マウント時に発火させると draft 初期化と競合するため、前回値との差分検知で発火させる。
+  const prevProfileIdRef = useRef<string>(currentProfileId);
   useEffect(() => {
+    if (prevProfileIdRef.current === currentProfileId) return;
     console.info('FaxDetailClient: profile changed, reset draft + step', {
       requestId,
-      currentProfileId,
+      prev: prevProfileIdRef.current,
+      next: currentProfileId,
     });
+    prevProfileIdRef.current = currentProfileId;
     setDraft(null);
     setStep('step1');
     setShowModal(false);
-    // 次回 request 再参照時に再び draft が生成される
   }, [currentProfileId, requestId]);
 
   // If request not found after data is loaded, surface error.
