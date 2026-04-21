@@ -178,7 +178,7 @@ export function classify(
 ```
 
 - **除外トレース（FR-S-2）**: `excluded` 側の `reason` を UI で展開表示し、`matchedKey / matchedValue` を見せる
-- 昇格ロジック（確定不能項目をどう扱うか）は金曜ヒアリング持ち越し（requirements.md 暫定値と金曜ヒアリング持ち越し論点 #5）
+- 昇格ロジック（確定不能項目をどう扱うか）は金曜ヒアリング持ち越し（requirements.md 暫定値と金曜ヒアリング持ち越し論点 #4）
 
 #### lookup エッジケース挙動
 
