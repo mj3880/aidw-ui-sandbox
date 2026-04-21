@@ -1,7 +1,12 @@
 // client-b: ClientProfile 実装
 
-import type { ClientProfile } from '@/types/profile';
+import type {
+  ClientProfile,
+  ClientComboboxOption,
+  MasterComboboxKind,
+} from '@/types/profile';
 import type { OcrEnvelope } from '@/types/ocr';
+import { FOCUS_FIELD_KEYS } from '@/types/ocr';
 import type { LookupAdapter, LookupResult } from '@/lib/ocr/lookup';
 import { makeItem } from '@/lib/ocr/envelope';
 import {
@@ -156,14 +161,14 @@ function lookupProduct(ocrField: unknown): LookupResult<ClientBItem> {
 
 function lookupPrice(
   product: unknown,
-  context: unknown,
+  ocrPrice: unknown,
 ): LookupResult<ClientBContractPrice> {
   if (!product || typeof product !== 'object') return { kind: 'none' };
   const p = product as { jan?: unknown };
   if (typeof p.jan !== 'string') return { kind: 'none' };
   const rule = clientBContractPrices.find((c) => c.jan === p.jan);
   if (!rule) return { kind: 'none' };
-  if (typeof context === 'number' && context === rule.contract_price) {
+  if (typeof ocrPrice === 'number' && ocrPrice === rule.contract_price) {
     return {
       kind: 'unique',
       value: rule,
@@ -181,6 +186,48 @@ const adapter: LookupAdapter = {
   price: lookupPrice,
 };
 
+// ---- view / fax 向けアダプタ ----
+
+function accountsToOptions(): ClientComboboxOption[] {
+  return clientBAccounts.map((a) => ({
+    value: a.account_no,
+    label: a.label,
+    sublabel: [a.account_no, a.region]
+      .filter((s): s is string => !!s && s.length > 0)
+      .join(' / '),
+  }));
+}
+
+function warehousesToOptions(): ClientComboboxOption[] {
+  // 既存 Step2 挙動: value=display（draft.deliveryLocation は表示名想定）
+  return clientBWarehouses.map((w) => ({
+    value: w.display,
+    label: w.display,
+    sublabel: w.warehouse_id || undefined,
+  }));
+}
+
+function itemsToOptions(): ClientComboboxOption[] {
+  return clientBItems.map((i) => ({
+    value: i.jan,
+    label: i.title,
+    sublabel: [i.jan, i.variant]
+      .filter((s): s is string => !!s && s.length > 0)
+      .join(' / '),
+  }));
+}
+
+function masterToComboboxOptions(kind: MasterComboboxKind): ClientComboboxOption[] {
+  if (kind === 'customer') return accountsToOptions();
+  if (kind === 'deliveryLocation') return warehousesToOptions();
+  return itemsToOptions();
+}
+
+function resolveExpectedPrice(productCode: string): number | null {
+  const rule = clientBContractPrices.find((c) => c.jan === productCode);
+  return rule ? rule.contract_price : null;
+}
+
 export const clientBProfile: ClientProfile = {
   clientId: 'client-b',
   displayName: 'Client B（物流/EC卸）',
@@ -195,9 +242,20 @@ export const clientBProfile: ClientProfile = {
     toEnvelope,
   },
   reviewRules: {
-    focusFields: ['customer', 'deliveryLocation', 'product', 'quantity', 'price'],
+    focusFields: [...FOCUS_FIELD_KEYS],
     excludeWhenUnique: true,
   },
   lookup: adapter,
+  faxAdapter: {
+    // client-b は OCR customer を { accountNo, labelText } 形で lookup へ渡す
+    toCustomerRaw: (customerId, customerName) => ({
+      accountNo: customerId,
+      labelText: customerName || customerId,
+    }),
+    toProductRaw: (productCode) => ({ jan: productCode }),
+    toPriceRaw: (ocrPrice) => ocrPrice,
+  },
+  masterToComboboxOptions,
+  resolveExpectedPrice,
   ocrSamples: clientBOcrSamples,
 };

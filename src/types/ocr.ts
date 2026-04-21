@@ -8,6 +8,15 @@ export type FocusFieldKey =
   | 'quantity'
   | 'price';
 
+/** focusFields の SSoT。review-exclusion.ts / profile reviewRules 双方から参照する */
+export const FOCUS_FIELD_KEYS: readonly FocusFieldKey[] = [
+  'customer',
+  'deliveryLocation',
+  'product',
+  'quantity',
+  'price',
+] as const;
+
 export interface OcrMeta {
   requestId: string;
   receivedAt: string; // ISO8601

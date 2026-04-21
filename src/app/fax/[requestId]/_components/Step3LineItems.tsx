@@ -44,90 +44,24 @@ const ALL_FIELD_LABELS = [
 ];
 
 /**
- * プロファイル masterSchema.product → ComboboxOption
- * - client-a: { sku, name, category }
- * - client-b: { jan, title, variant }
+ * profile.resolveExpectedPrice（number | null）を PriceDiffBadge が期待する
+ * ExpectedPriceResult 形へラップ。プロファイル抽象では契約単価は絶対値のみ扱うため
+ * mode='absolute' 固定、coefficient=null とする。
  */
-function toProductOptions(master: unknown): ComboboxOption[] {
-  if (!Array.isArray(master)) return [];
-  return master.map((entry): ComboboxOption => {
-    if (entry && typeof entry === 'object') {
-      const rec = entry as Record<string, unknown>;
-      const code =
-        typeof rec.sku === 'string'
-          ? rec.sku
-          : typeof rec.jan === 'string'
-            ? rec.jan
-            : typeof rec.productCode === 'string'
-              ? rec.productCode
-              : '(unknown)';
-      const name =
-        typeof rec.name === 'string'
-          ? rec.name
-          : typeof rec.title === 'string'
-            ? rec.title
-            : typeof rec.productName === 'string'
-              ? rec.productName
-              : code;
-      const sublabelParts: string[] = [code];
-      if (typeof rec.variant === 'string' && rec.variant.length > 0) {
-        sublabelParts.push(rec.variant);
-      }
-      if (typeof rec.category === 'string' && rec.category.length > 0) {
-        sublabelParts.push(rec.category);
-      }
-      return {
-        value: code,
-        label: name,
-        sublabel: sublabelParts.join(' / '),
-      };
-    }
-    return { value: String(entry), label: String(entry) };
-  });
-}
-
-/**
- * プロファイル masterSchema.price から productCode に対する契約単価を引く。
- * - client-a: ClientAPriceRule { sku, basePrice }
- * - client-b: ClientBContractPrice { jan, contract_price }
- */
-function resolveExpectedPrice(
+function expectedFromProfile(
   profile: ClientProfile,
   productCode: string,
 ): ExpectedPriceResult {
-  const master = profile.masterSchema.price;
-  if (!Array.isArray(master)) {
+  const price = profile.resolveExpectedPrice(productCode);
+  if (price === null) {
     return { mode: 'unknown', expectedPrice: null, defaultPrice: null, coefficient: null };
   }
-  for (const entry of master) {
-    if (!entry || typeof entry !== 'object') continue;
-    const rec = entry as Record<string, unknown>;
-    const code =
-      typeof rec.sku === 'string'
-        ? rec.sku
-        : typeof rec.jan === 'string'
-          ? rec.jan
-          : typeof rec.productCode === 'string'
-            ? rec.productCode
-            : '';
-    if (code !== productCode) continue;
-    const price =
-      typeof rec.basePrice === 'number'
-        ? rec.basePrice
-        : typeof rec.contract_price === 'number'
-          ? rec.contract_price
-          : typeof rec.defaultUnitPrice === 'number'
-            ? rec.defaultUnitPrice
-            : null;
-    if (price === null) continue;
-    return {
-      mode: 'absolute',
-      expectedPrice: price,
-      defaultPrice: price,
-      coefficient: null,
-    };
-  }
-  return { mode: 'unknown', expectedPrice: null, defaultPrice: null, coefficient: null };
+  return {
+    mode: 'absolute',
+    expectedPrice: price,
+    defaultPrice: price,
+    coefficient: null,
+  };
 }
 
 export function Step3LineItems({
@@ -145,8 +79,8 @@ export function Step3LineItems({
   const setShowAll = onShowAllFieldsChange;
 
   const productOptions = useMemo(
-    () => toProductOptions(profile.masterSchema.product),
-    [profile.masterSchema.product],
+    () => profile.masterToComboboxOptions('product'),
+    [profile],
   );
 
   const visibleItems = useMemo(() => {
@@ -257,7 +191,7 @@ function LineItemRow({
   indexLabel,
 }: LineItemRowProps) {
   const expected = useMemo(
-    () => resolveExpectedPrice(profile, item.productCode),
+    () => expectedFromProfile(profile, item.productCode),
     [profile, item.productCode],
   );
 
@@ -347,8 +281,7 @@ function LineItemRow({
           value={item.productCode}
           onChange={(v) => {
             const nextName = displayOptions.find((o) => o.value === v)?.label ?? item.productName;
-            const exp = resolveExpectedPrice(profile, v);
-            const nextPrice = exp.expectedPrice ?? item.unitPrice;
+            const nextPrice = profile.resolveExpectedPrice(v) ?? item.unitPrice;
             onUpdate({
               productCode: v,
               productName: nextName,

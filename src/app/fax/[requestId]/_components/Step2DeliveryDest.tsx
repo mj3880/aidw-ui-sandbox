@@ -1,8 +1,8 @@
 'use client';
 
-import { useMemo } from 'react';
+import { useEffect, useMemo } from 'react';
 import { Check, ChevronLeft } from 'lucide-react';
-import { SearchCombobox, type ComboboxOption } from '@/components/SearchCombobox';
+import { SearchCombobox } from '@/components/SearchCombobox';
 import { useOcrStore } from '@/store/ocr-store';
 import { getProfile } from '@/profiles';
 import { classifyDeliveryLocation } from '@/lib/ocr/fax-review';
@@ -17,61 +17,28 @@ interface Props {
   mode: Mode;
 }
 
-/**
- * プロファイル masterSchema.deliveryLocation → ComboboxOption
- * - client-a: { code, name }
- * - client-b: { warehouse_id, display }
- * 納品先の value は「表示名」で統一（既存 RequestDraft.deliveryLocation が文字列のため互換）
- */
-function toDeliveryOptions(master: unknown): ComboboxOption[] {
-  if (!Array.isArray(master)) return [];
-  return master.map((entry): ComboboxOption => {
-    if (entry && typeof entry === 'object') {
-      const rec = entry as Record<string, unknown>;
-      const name =
-        typeof rec.name === 'string'
-          ? rec.name
-          : typeof rec.display === 'string'
-            ? rec.display
-            : typeof rec.label === 'string'
-              ? rec.label
-              : '(名称未取得)';
-      const code =
-        typeof rec.code === 'string'
-          ? rec.code
-          : typeof rec.warehouse_id === 'string'
-            ? rec.warehouse_id
-            : '';
-      return {
-        value: name,
-        label: name,
-        sublabel: code || undefined,
-      };
-    }
-    return { value: String(entry), label: String(entry) };
-  });
-}
-
 export function Step2DeliveryDest({ draft, setDraft, onBack, onNext, mode }: Props) {
   const currentProfileId = useOcrStore((s) => s.currentProfileId);
   const profile = getProfile(currentProfileId);
 
   const options = useMemo(
-    () => toDeliveryOptions(profile.masterSchema.deliveryLocation),
-    [profile.masterSchema.deliveryLocation],
+    () => profile.masterToComboboxOptions('deliveryLocation'),
+    [profile],
   );
 
   // 選択中の納品先が候補に存在しない場合 → (不明) 表示 + warn
   const exists = options.some((o) => o.value === draft.deliveryLocation);
-  if (!exists && draft.deliveryLocation && typeof window !== 'undefined') {
-    console.warn(
-      '[Step2DeliveryDest] current deliveryLocation not in profile masters',
-      {
-        profileId: profile.clientId,
-        current: draft.deliveryLocation,
-      },
-    );
-  }
+  useEffect(() => {
+    if (!exists && draft.deliveryLocation) {
+      console.warn(
+        '[Step2DeliveryDest] current deliveryLocation not in profile masters',
+        {
+          profileId: profile.clientId,
+          current: draft.deliveryLocation,
+        },
+      );
+    }
+  }, [exists, draft.deliveryLocation, profile.clientId]);
 
   const badge = useMemo(
     () => classifyDeliveryLocation(profile, draft.deliveryLocation),

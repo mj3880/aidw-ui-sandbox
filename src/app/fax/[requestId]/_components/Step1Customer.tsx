@@ -2,7 +2,7 @@
 
 import { useMemo } from 'react';
 import { Check } from 'lucide-react';
-import { SearchCombobox, type ComboboxOption } from '@/components/SearchCombobox';
+import { SearchCombobox } from '@/components/SearchCombobox';
 import { useOcrStore } from '@/store/ocr-store';
 import { getProfile } from '@/profiles';
 import { classifyCustomer } from '@/lib/ocr/fax-review';
@@ -16,53 +16,13 @@ interface Props {
   mode: Mode;
 }
 
-/**
- * プロファイル masterSchema.customer から ComboboxOption を生成する。
- * - client-a: ClientACustomer { id, name, tel }
- * - client-b: ClientBAccount { account_no, label, region }
- * 共通の識別キー・表示ラベルを検出する最小ロジック。
- */
-function toCustomerOptions(master: unknown): ComboboxOption[] {
-  if (!Array.isArray(master)) return [];
-  return master.map((entry): ComboboxOption => {
-    if (entry && typeof entry === 'object') {
-      const rec = entry as Record<string, unknown>;
-      const id =
-        typeof rec.id === 'string'
-          ? rec.id
-          : typeof rec.account_no === 'string'
-            ? rec.account_no
-            : typeof rec.customerId === 'string'
-              ? rec.customerId
-              : String(rec.id ?? rec.account_no ?? '(unknown)');
-      const label =
-        typeof rec.name === 'string'
-          ? rec.name
-          : typeof rec.label === 'string'
-            ? rec.label
-            : typeof rec.customerName === 'string'
-              ? rec.customerName
-              : id;
-      const sublabelParts: string[] = [id];
-      if (typeof rec.tel === 'string' && rec.tel.length > 0) sublabelParts.push(rec.tel);
-      if (typeof rec.region === 'string' && rec.region.length > 0) sublabelParts.push(rec.region);
-      return {
-        value: id,
-        label,
-        sublabel: sublabelParts.join(' / '),
-      };
-    }
-    return { value: String(entry), label: String(entry) };
-  });
-}
-
 export function Step1Customer({ draft, setDraft, onNext, mode }: Props) {
   const currentProfileId = useOcrStore((s) => s.currentProfileId);
   const profile = getProfile(currentProfileId);
 
   const options = useMemo(
-    () => toCustomerOptions(profile.masterSchema.customer),
-    [profile.masterSchema.customer],
+    () => profile.masterToComboboxOptions('customer'),
+    [profile],
   );
 
   const selected = options.find((o) => o.value === draft.customerId);

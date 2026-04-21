@@ -24,6 +24,9 @@ export interface LookupAdapter {
   customer: (ocrField: unknown) => LookupResult<unknown>;
   deliveryLocation: (ocrField: unknown) => LookupResult<unknown>;
   product: (ocrField: unknown) => LookupResult<unknown>;
-  /** price lookup は context（product 等）欠損時は 'none' 扱い */
-  price: (product: unknown, context: unknown) => LookupResult<unknown>;
+  /**
+   * price lookup。product（masterキー）と OCR 抽出価格（ocrPrice）を突合する。
+   * product 欠損時は 'none' 扱い。ocrPrice は契約価格との一致チェックに用いる。
+   */
+  price: (product: unknown, ocrPrice: unknown) => LookupResult<unknown>;
 }

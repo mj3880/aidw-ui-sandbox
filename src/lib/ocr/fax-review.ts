@@ -1,14 +1,8 @@
 // aidw-ocr-abstraction: /fax/[requestId] 側の各フィールドに対する
 // OCR lookup バッジ判定ヘルパ（T-A05 / T-A06）
 //
-// FaxRequest のダミーデータはプロファイル masters と完全整合しないため、
-// lookup の入力形は各フィールドごとに「プロファイル側がどのrawValueで受け取るか」を合わせる。
-//
-// - customer: client-a → string（顧客名文字列想定）/ client-b → { accountNo?, labelText }
-// - deliveryLocation: 文字列（client-a: name） / client-b: warehouse_id
-// - product: { sku: productCode } / client-b: { jan: productCode }
-//
-// プロファイルごとの rawValue 形状をここで吸収して lookup を呼ぶ。
+// rawValue 形状の組立はプロファイル側 faxAdapter に委譲する。
+// ここでは profile.clientId での分岐を持たない。
 
 import type { ClientProfile } from '@/types/profile';
 import type { LookupResult } from './lookup';
@@ -27,12 +21,8 @@ export function classifyCustomer(
   customerName: string,
 ): FieldBadge {
   if (!customerId && !customerName) return { kind: 'unknown', label: '情報なし' };
-  const rawValue: unknown =
-    profile.clientId === 'client-b'
-      ? { accountNo: customerId, labelText: customerName || customerId }
-      : customerName || customerId;
-  const result = profile.lookup.customer(rawValue);
-  return toBadge(result);
+  const rawValue = profile.faxAdapter.toCustomerRaw(customerId, customerName);
+  return toBadge(profile.lookup.customer(rawValue));
 }
 
 export function classifyDeliveryLocation(
@@ -40,35 +30,29 @@ export function classifyDeliveryLocation(
   deliveryLocation: string,
 ): FieldBadge {
   if (!deliveryLocation) return { kind: 'unknown', label: '情報なし' };
-  const result = profile.lookup.deliveryLocation(deliveryLocation);
-  return toBadge(result);
+  return toBadge(profile.lookup.deliveryLocation(deliveryLocation));
 }
 
 export function classifyProduct(
   profile: ClientProfile,
   productCode: string,
+  productName = '',
 ): FieldBadge {
   if (!productCode) return { kind: 'unknown', label: '情報なし' };
-  const rawValue: unknown =
-    profile.clientId === 'client-b'
-      ? { jan: productCode }
-      : { sku: productCode };
-  const result = profile.lookup.product(rawValue);
-  return toBadge(result);
+  const rawValue = profile.faxAdapter.toProductRaw(productCode, productName);
+  return toBadge(profile.lookup.product(rawValue));
 }
 
 export function classifyPrice(
   profile: ClientProfile,
   productCode: string,
   actualPrice: number,
+  productName = '',
 ): FieldBadge {
   if (!productCode) return { kind: 'unknown', label: '情報なし' };
-  const product: unknown =
-    profile.clientId === 'client-b'
-      ? { jan: productCode }
-      : { sku: productCode };
-  const result = profile.lookup.price(product, actualPrice);
-  return toBadge(result);
+  const productRaw = profile.faxAdapter.toProductRaw(productCode, productName);
+  const priceRaw = profile.faxAdapter.toPriceRaw(actualPrice);
+  return toBadge(profile.lookup.price(productRaw, priceRaw));
 }
 
 function toBadge(result: LookupResult<unknown>): FieldBadge {

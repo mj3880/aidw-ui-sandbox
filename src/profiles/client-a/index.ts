@@ -1,7 +1,12 @@
 // client-a: ClientProfile 実装
 
-import type { ClientProfile } from '@/types/profile';
+import type {
+  ClientProfile,
+  ClientComboboxOption,
+  MasterComboboxKind,
+} from '@/types/profile';
 import type { OcrEnvelope } from '@/types/ocr';
+import { FOCUS_FIELD_KEYS } from '@/types/ocr';
 import type { LookupAdapter, LookupResult } from '@/lib/ocr/lookup';
 import { makeItem } from '@/lib/ocr/envelope';
 import {
@@ -132,15 +137,15 @@ function lookupProduct(ocrField: unknown): LookupResult<ClientAProduct> {
 
 function lookupPrice(
   product: unknown,
-  context: unknown,
+  ocrPrice: unknown,
 ): LookupResult<ClientAPriceRule> {
   if (!product || typeof product !== 'object') return { kind: 'none' };
   const p = product as { sku?: unknown };
   if (typeof p.sku !== 'string') return { kind: 'none' };
   const rule = clientAPriceRules.find((r) => r.sku === p.sku);
   if (!rule) return { kind: 'none' };
-  // context が OCR 抽出価格（number）ならば一致チェック
-  if (typeof context === 'number' && context === rule.basePrice) {
+  // ocrPrice が OCR 抽出価格（number）ならば一致チェック
+  if (typeof ocrPrice === 'number' && ocrPrice === rule.basePrice) {
     return {
       kind: 'unique',
       value: rule,
@@ -159,6 +164,45 @@ const adapter: LookupAdapter = {
   price: lookupPrice,
 };
 
+// ---- view / fax 向けアダプタ ----
+
+function customersToOptions(): ClientComboboxOption[] {
+  return clientACustomers.map((c) => ({
+    value: c.id,
+    label: c.name,
+    sublabel: [c.id, c.tel].filter((s): s is string => !!s && s.length > 0).join(' / '),
+  }));
+}
+
+function deliveryLocationsToOptions(): ClientComboboxOption[] {
+  return clientADeliveryLocations.map((l) => ({
+    value: l.name,
+    label: l.name,
+    sublabel: l.code || undefined,
+  }));
+}
+
+function productsToOptions(): ClientComboboxOption[] {
+  return clientAProducts.map((p) => ({
+    value: p.sku,
+    label: p.name,
+    sublabel: [p.sku, p.category]
+      .filter((s): s is string => !!s && s.length > 0)
+      .join(' / '),
+  }));
+}
+
+function masterToComboboxOptions(kind: MasterComboboxKind): ClientComboboxOption[] {
+  if (kind === 'customer') return customersToOptions();
+  if (kind === 'deliveryLocation') return deliveryLocationsToOptions();
+  return productsToOptions();
+}
+
+function resolveExpectedPrice(productCode: string): number | null {
+  const rule = clientAPriceRules.find((r) => r.sku === productCode);
+  return rule ? rule.basePrice : null;
+}
+
 export const clientAProfile: ClientProfile = {
   clientId: 'client-a',
   displayName: 'Client A（汎用飲食卸）',
@@ -173,9 +217,17 @@ export const clientAProfile: ClientProfile = {
     toEnvelope,
   },
   reviewRules: {
-    focusFields: ['customer', 'deliveryLocation', 'product', 'quantity', 'price'],
+    focusFields: [...FOCUS_FIELD_KEYS],
     excludeWhenUnique: true,
   },
   lookup: adapter,
+  faxAdapter: {
+    // client-a は OCR customer を「顧客名文字列」として lookup へ渡す
+    toCustomerRaw: (_customerId, customerName) => customerName || _customerId,
+    toProductRaw: (productCode) => ({ sku: productCode }),
+    toPriceRaw: (ocrPrice) => ocrPrice,
+  },
+  masterToComboboxOptions,
+  resolveExpectedPrice,
   ocrSamples: clientAOcrSamples,
 };

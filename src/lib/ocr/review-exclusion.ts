@@ -2,6 +2,7 @@
 // 設計: specs/aidw-ocr-abstraction/design.md §自動除外ロジック
 
 import type { OcrEnvelope, OcrItem, FocusFieldKey } from '@/types/ocr';
+import { FOCUS_FIELD_KEYS } from '@/types/ocr';
 import type { ClientProfile } from '@/types/profile';
 import type { LookupResult } from './lookup';
 
@@ -15,19 +16,11 @@ export interface ReviewDecision {
   outcome: ReviewOutcome;
 }
 
-const FOCUS_FIELDS: ReadonlyArray<FocusFieldKey> = [
-  'customer',
-  'deliveryLocation',
-  'product',
-  'quantity',
-  'price',
-];
-
 function callLookup(
   profile: ClientProfile,
   fieldKey: FocusFieldKey,
   item: OcrItem,
-  items: OcrItem[],
+  itemsByKey: Map<FocusFieldKey | string, OcrItem>,
 ): LookupResult<unknown> {
   if (fieldKey === 'customer') return profile.lookup.customer(item.rawValue);
   if (fieldKey === 'deliveryLocation')
@@ -35,11 +28,11 @@ function callLookup(
   if (fieldKey === 'product') return profile.lookup.product(item.rawValue);
   if (fieldKey === 'price') {
     // price lookup は product 情報が context 必須
-    const productItem = items.find((i) => i.fieldKey === 'product');
+    const productItem = itemsByKey.get('product');
     if (!productItem) return { kind: 'none' };
     return profile.lookup.price(productItem.rawValue, item.rawValue);
   }
-  // quantity は LookupAdapter 非対応 → review 扱い（呼び元では扱わない）
+  // quantity は classify() で事前除外済み
   return { kind: 'none' };
 }
 
@@ -60,10 +53,15 @@ export function classify(
   const focusFields: ReadonlyArray<FocusFieldKey> =
     profile.reviewRules.focusFields.length > 0
       ? profile.reviewRules.focusFields
-      : FOCUS_FIELDS;
+      : FOCUS_FIELD_KEYS;
+
+  // items の fieldKey 参照を O(1) 化（price lookup の product 取得等で利用）
+  const itemsByKey = new Map<FocusFieldKey | string, OcrItem>(
+    envelope.items.map((it) => [it.fieldKey, it]),
+  );
 
   for (const fieldKey of focusFields) {
-    const item = envelope.items.find((i) => i.fieldKey === fieldKey);
+    const item = itemsByKey.get(fieldKey);
     if (!item) continue;
 
     // quantity は lookup 非対応 → 常に review
@@ -76,7 +74,7 @@ export function classify(
       continue;
     }
 
-    const result = callLookup(profile, fieldKey, item, envelope.items);
+    const result = callLookup(profile, fieldKey, item, itemsByKey);
     const outcome: ReviewOutcome =
       result.kind === 'unique' && profile.reviewRules.excludeWhenUnique
         ? { kind: 'excluded', reason: result }
