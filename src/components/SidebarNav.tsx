@@ -12,6 +12,7 @@ import {
   Database,
   Settings,
   PanelLeftClose,
+  Layers,
 } from 'lucide-react';
 
 interface NavItem {
@@ -27,6 +28,8 @@ const BUSINESS_ITEMS: NavItem[] = [
   { label: 'FAX確認', href: '/fax', icon: FileText, enabled: true },
   { label: '発注確認', href: '#', icon: ShoppingCart, enabled: false },
   { label: 'マスタ管理', href: '#', icon: Database, enabled: false },
+  // aidw-ocr-abstraction 検証用（プロトタイプ併存エントリ）
+  { label: 'OCR抽象化', href: '/ocr-abstraction', icon: Layers, enabled: true },
 ];
 
 export function SidebarNav() {

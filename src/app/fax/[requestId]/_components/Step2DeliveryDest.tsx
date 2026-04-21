@@ -3,8 +3,10 @@
 import { useMemo } from 'react';
 import { Check, ChevronLeft } from 'lucide-react';
 import { SearchCombobox, type ComboboxOption } from '@/components/SearchCombobox';
-import { useStore } from '@/store/store';
-import { DELIVERY_LOCATIONS } from '@/lib/delivery-locations';
+import { useOcrStore } from '@/store/ocr-store';
+import { getProfile } from '@/profiles';
+import { classifyDeliveryLocation } from '@/lib/ocr/fax-review';
+import { OcrBadge } from './OcrBadge';
 import type { Mode, RequestDraft } from './types';
 
 interface Props {
@@ -15,22 +17,80 @@ interface Props {
   mode: Mode;
 }
 
-export function Step2DeliveryDest({ draft, setDraft, onBack, onNext, mode }: Props) {
-  const masters = useStore((s) => s.masters);
+/**
+ * プロファイル masterSchema.deliveryLocation → ComboboxOption
+ * - client-a: { code, name }
+ * - client-b: { warehouse_id, display }
+ * 納品先の value は「表示名」で統一（既存 RequestDraft.deliveryLocation が文字列のため互換）
+ */
+function toDeliveryOptions(master: unknown): ComboboxOption[] {
+  if (!Array.isArray(master)) return [];
+  return master.map((entry): ComboboxOption => {
+    if (entry && typeof entry === 'object') {
+      const rec = entry as Record<string, unknown>;
+      const name =
+        typeof rec.name === 'string'
+          ? rec.name
+          : typeof rec.display === 'string'
+            ? rec.display
+            : typeof rec.label === 'string'
+              ? rec.label
+              : '(名称未取得)';
+      const code =
+        typeof rec.code === 'string'
+          ? rec.code
+          : typeof rec.warehouse_id === 'string'
+            ? rec.warehouse_id
+            : '';
+      return {
+        value: name,
+        label: name,
+        sublabel: code || undefined,
+      };
+    }
+    return { value: String(entry), label: String(entry) };
+  });
+}
 
-  const options: ComboboxOption[] = useMemo(
-    () => DELIVERY_LOCATIONS.map((name) => ({ value: name, label: name })),
-    [],
+export function Step2DeliveryDest({ draft, setDraft, onBack, onNext, mode }: Props) {
+  const currentProfileId = useOcrStore((s) => s.currentProfileId);
+  const profile = getProfile(currentProfileId);
+
+  const options = useMemo(
+    () => toDeliveryOptions(profile.masterSchema.deliveryLocation),
+    [profile.masterSchema.deliveryLocation],
   );
 
-  const customer = masters?.customers.find((c) => c.customerId === draft.customerId);
+  // 選択中の納品先が候補に存在しない場合 → (不明) 表示 + warn
+  const exists = options.some((o) => o.value === draft.deliveryLocation);
+  if (!exists && draft.deliveryLocation && typeof window !== 'undefined') {
+    console.warn(
+      '[Step2DeliveryDest] current deliveryLocation not in profile masters',
+      {
+        profileId: profile.clientId,
+        current: draft.deliveryLocation,
+      },
+    );
+  }
+
+  const badge = useMemo(
+    () => classifyDeliveryLocation(profile, draft.deliveryLocation),
+    [profile, draft.deliveryLocation],
+  );
 
   return (
     <div className="card card-pad">
-      <h3 style={{ margin: '0 0 4px', fontSize: 15, fontWeight: 600 }}>納品先</h3>
+      <div className="flex items-center justify-between" style={{ marginBottom: 4 }}>
+        <h3 style={{ margin: 0, fontSize: 15, fontWeight: 600 }}>納品先</h3>
+        <OcrBadge badge={badge} />
+      </div>
       <p style={{ color: 'var(--text-muted)', fontSize: 12.5, margin: '0 0 16px' }}>
         OCRから抽出された納品先を確認してください。
       </p>
+      <div style={{ fontSize: 11.5, color: 'var(--text-subtle)', marginBottom: 10 }}>
+        候補ソース: プロファイル <strong>{profile.displayName}</strong> の
+        masterSchema.deliveryLocation
+      </div>
 
       <div
         style={{
@@ -41,26 +101,12 @@ export function Step2DeliveryDest({ draft, setDraft, onBack, onNext, mode }: Pro
         }}
       >
         <div style={{ color: 'var(--text-subtle)', fontSize: 12.5 }}>OCR抽出</div>
-        <div style={{ fontSize: 15, fontWeight: 600, marginTop: 2 }}>{draft.deliveryLocation}</div>
+        <div style={{ fontSize: 15, fontWeight: 600, marginTop: 2 }}>
+          {exists ? draft.deliveryLocation : `${draft.deliveryLocation || '-'} (不明)`}
+        </div>
       </div>
 
       <div>
-        {customer && (
-          <div
-            style={{
-              padding: '8px 12px',
-              marginBottom: 8,
-              background: 'var(--bg-muted)',
-              borderRadius: 'var(--r-sm)',
-              fontSize: 12.5,
-            }}
-          >
-            <span style={{ color: 'var(--text-subtle)', marginRight: 8 }}>取引先</span>
-            <span style={{ fontWeight: 600 }}>
-              {customer.customerId} {customer.customerName}
-            </span>
-          </div>
-        )}
         <label className="form-label">納品先を変更</label>
         <SearchCombobox
           value={draft.deliveryLocation}

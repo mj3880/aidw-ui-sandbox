@@ -1,15 +1,22 @@
 'use client';
 
-import { useMemo, useState } from 'react';
+import { useMemo } from 'react';
 import { ChevronLeft, ChevronRight } from 'lucide-react';
-import { useStore } from '@/store/store';
+import { useOcrStore } from '@/store/ocr-store';
+import { getProfile } from '@/profiles';
 import { SearchCombobox, type ComboboxOption } from '@/components/SearchCombobox';
 import { PriceDiffBadge } from '@/components/PriceDiffBadge';
-import { resolveProductCandidates } from '@/lib/product-mapping-resolver';
-import { computeExpectedPrice, classifyDiff, type DiffLevel } from '@/lib/price-calculator';
+import {
+  classifyDiff,
+  type DiffLevel,
+  type ExpectedPriceResult,
+} from '@/lib/price-calculator';
+import { classifyProduct, classifyPrice } from '@/lib/ocr/fax-review';
 import { formatYen } from '@/lib/utils';
+import { OcrBadge } from './OcrBadge';
 import type { Mode, RequestDraft } from './types';
 import type { LineItem } from '@/types/request';
+import type { ClientProfile } from '@/types/profile';
 
 interface Props {
   draft: RequestDraft;
@@ -36,6 +43,93 @@ const ALL_FIELD_LABELS = [
   '開発ルート',
 ];
 
+/**
+ * プロファイル masterSchema.product → ComboboxOption
+ * - client-a: { sku, name, category }
+ * - client-b: { jan, title, variant }
+ */
+function toProductOptions(master: unknown): ComboboxOption[] {
+  if (!Array.isArray(master)) return [];
+  return master.map((entry): ComboboxOption => {
+    if (entry && typeof entry === 'object') {
+      const rec = entry as Record<string, unknown>;
+      const code =
+        typeof rec.sku === 'string'
+          ? rec.sku
+          : typeof rec.jan === 'string'
+            ? rec.jan
+            : typeof rec.productCode === 'string'
+              ? rec.productCode
+              : '(unknown)';
+      const name =
+        typeof rec.name === 'string'
+          ? rec.name
+          : typeof rec.title === 'string'
+            ? rec.title
+            : typeof rec.productName === 'string'
+              ? rec.productName
+              : code;
+      const sublabelParts: string[] = [code];
+      if (typeof rec.variant === 'string' && rec.variant.length > 0) {
+        sublabelParts.push(rec.variant);
+      }
+      if (typeof rec.category === 'string' && rec.category.length > 0) {
+        sublabelParts.push(rec.category);
+      }
+      return {
+        value: code,
+        label: name,
+        sublabel: sublabelParts.join(' / '),
+      };
+    }
+    return { value: String(entry), label: String(entry) };
+  });
+}
+
+/**
+ * プロファイル masterSchema.price から productCode に対する契約単価を引く。
+ * - client-a: ClientAPriceRule { sku, basePrice }
+ * - client-b: ClientBContractPrice { jan, contract_price }
+ */
+function resolveExpectedPrice(
+  profile: ClientProfile,
+  productCode: string,
+): ExpectedPriceResult {
+  const master = profile.masterSchema.price;
+  if (!Array.isArray(master)) {
+    return { mode: 'unknown', expectedPrice: null, defaultPrice: null, coefficient: null };
+  }
+  for (const entry of master) {
+    if (!entry || typeof entry !== 'object') continue;
+    const rec = entry as Record<string, unknown>;
+    const code =
+      typeof rec.sku === 'string'
+        ? rec.sku
+        : typeof rec.jan === 'string'
+          ? rec.jan
+          : typeof rec.productCode === 'string'
+            ? rec.productCode
+            : '';
+    if (code !== productCode) continue;
+    const price =
+      typeof rec.basePrice === 'number'
+        ? rec.basePrice
+        : typeof rec.contract_price === 'number'
+          ? rec.contract_price
+          : typeof rec.defaultUnitPrice === 'number'
+            ? rec.defaultUnitPrice
+            : null;
+    if (price === null) continue;
+    return {
+      mode: 'absolute',
+      expectedPrice: price,
+      defaultPrice: price,
+      coefficient: null,
+    };
+  }
+  return { mode: 'unknown', expectedPrice: null, defaultPrice: null, coefficient: null };
+}
+
 export function Step3LineItems({
   draft,
   setDraft,
@@ -45,8 +139,15 @@ export function Step3LineItems({
   showAllFields,
   onShowAllFieldsChange,
 }: Props) {
+  const currentProfileId = useOcrStore((s) => s.currentProfileId);
+  const profile = getProfile(currentProfileId);
   const showAll = showAllFields;
   const setShowAll = onShowAllFieldsChange;
+
+  const productOptions = useMemo(
+    () => toProductOptions(profile.masterSchema.product),
+    [profile.masterSchema.product],
+  );
 
   const visibleItems = useMemo(() => {
     if (showAll) return draft.lineItems;
@@ -78,6 +179,10 @@ export function Step3LineItems({
               ? `全 ${draft.lineItems.length} 件`
               : `低信頼度 ${lowCount} 件 / 全 ${draft.lineItems.length} 件`}
           </p>
+          <div style={{ fontSize: 11, color: 'var(--text-subtle)', marginTop: 4 }}>
+            候補ソース: プロファイル <strong>{profile.displayName}</strong> の
+            masterSchema.product + masterSchema.price
+          </div>
         </div>
         <label
           className="flex items-center gap-2 select-none cursor-pointer"
@@ -106,9 +211,10 @@ export function Step3LineItems({
               <LineItemRow
                 key={li.lineItemId}
                 item={li}
-                customerId={draft.customerId}
+                profile={profile}
                 mode={mode}
                 showAllFields={showAll}
+                productOptions={productOptions}
                 onUpdate={(patch) => updateItem(li.lineItemId, patch)}
                 indexLabel={`#${originalIdx + 1}`}
               />
@@ -133,73 +239,40 @@ export function Step3LineItems({
 
 interface LineItemRowProps {
   item: LineItem;
-  customerId: string;
+  profile: ClientProfile;
   mode: Mode;
   showAllFields: boolean;
+  productOptions: ComboboxOption[];
   onUpdate: (patch: Partial<LineItem>) => void;
   indexLabel: string;
 }
 
 function LineItemRow({
   item,
-  customerId,
+  profile,
   mode,
   showAllFields,
+  productOptions,
   onUpdate,
   indexLabel,
 }: LineItemRowProps) {
-  const masters = useStore((s) => s.masters);
-  const [productQuery, setProductQuery] = useState('');
+  const expected = useMemo(
+    () => resolveExpectedPrice(profile, item.productCode),
+    [profile, item.productCode],
+  );
 
-  const expected = useMemo(() => {
-    if (!masters) return null;
-    return computeExpectedPrice(
-      customerId,
-      item.productCode,
-      masters.customerPrices,
-      masters.defaultPrices,
-    );
-  }, [customerId, item.productCode, masters]);
+  const diffLevel: DiffLevel = classifyDiff(item.unitPrice, expected.expectedPrice);
 
-  const diffLevel: DiffLevel = expected
-    ? classifyDiff(item.unitPrice, expected.expectedPrice)
-    : 'unknown';
+  const productBadge = useMemo(
+    () => classifyProduct(profile, item.productCode),
+    [profile, item.productCode],
+  );
+  const priceBadge = useMemo(
+    () => classifyPrice(profile, item.productCode, item.unitPrice),
+    [profile, item.productCode, item.unitPrice],
+  );
 
-  const productOptions: ComboboxOption[] = useMemo(() => {
-    if (!masters) return [];
-    const ranked = resolveProductCandidates(
-      productQuery,
-      customerId,
-      masters.products,
-      masters.productMappings,
-      50,
-    );
-    const list: ComboboxOption[] = ranked.map(({ product, source }) => ({
-      value: product.productCode,
-      label: product.productName,
-      sublabel: `${product.productCode} / ${product.origin || '-'}`,
-      badge:
-        source === 'customer-manual' || source === 'customer-auto'
-          ? '取引先別'
-          : source === 'generic-manual' || source === 'generic-auto'
-            ? '汎用'
-            : undefined,
-    }));
-    // 現在選択中の商品が候補に含まれない場合、先頭に補完（表示ラベル確保）
-    if (item.productCode && !list.some((o) => o.value === item.productCode)) {
-      const sel = masters.products.find((p) => p.productCode === item.productCode);
-      if (sel) {
-        list.unshift({
-          value: sel.productCode,
-          label: sel.productName,
-          sublabel: `${sel.productCode} / ${sel.origin || '-'}`,
-        });
-      }
-    }
-    return list;
-  }, [productQuery, customerId, masters, item.productCode]);
-
-  // 低信頼度行の枠装飾 (warn-style: bg)
+  // 低信頼度行の枠装飾
   const lowConfidenceStyle: React.CSSProperties = item.isLowConfidence
     ? {
         borderLeft: '3px solid var(--warn-border)',
@@ -207,7 +280,6 @@ function LineItemRow({
       }
     : {};
 
-  // 単価欄の背景（warn-style: bg）
   const priceInputStyle: React.CSSProperties = (() => {
     if (diffLevel === 'error') {
       return { background: 'var(--err-bg-soft)', borderColor: 'var(--err-border)' };
@@ -217,6 +289,21 @@ function LineItemRow({
     }
     return {};
   })();
+
+  // 現選択中商品が候補にない場合の補完
+  const displayOptions: ComboboxOption[] = useMemo(() => {
+    if (item.productCode && !productOptions.some((o) => o.value === item.productCode)) {
+      return [
+        {
+          value: item.productCode,
+          label: item.productName || item.productCode,
+          sublabel: `${item.productCode} / (プロファイル外)`,
+        },
+        ...productOptions,
+      ];
+    }
+    return productOptions;
+  }, [productOptions, item.productCode, item.productName]);
 
   return (
     <div
@@ -250,34 +337,27 @@ function LineItemRow({
 
       {/* Product */}
       <div style={{ marginBottom: 10 }}>
-        <div className="form-label" style={{ marginBottom: 4 }}>
-          商品コード・商品名
+        <div className="flex items-center justify-between" style={{ marginBottom: 4 }}>
+          <div className="form-label" style={{ marginBottom: 0 }}>
+            商品コード・商品名
+          </div>
+          <OcrBadge badge={productBadge} />
         </div>
         <SearchCombobox
           value={item.productCode}
           onChange={(v) => {
-            const nextName =
-              masters?.products.find((p) => p.productCode === v)?.productName ??
-              item.productName;
-            const exp = masters
-              ? computeExpectedPrice(
-                  customerId,
-                  v,
-                  masters.customerPrices,
-                  masters.defaultPrices,
-                )
-              : null;
-            const nextPrice = exp?.expectedPrice ?? item.unitPrice;
+            const nextName = displayOptions.find((o) => o.value === v)?.label ?? item.productName;
+            const exp = resolveExpectedPrice(profile, v);
+            const nextPrice = exp.expectedPrice ?? item.unitPrice;
             onUpdate({
               productCode: v,
               productName: nextName,
               unitPrice: nextPrice,
             });
           }}
-          options={productOptions}
+          options={displayOptions}
           placeholder="商品名・コードで部分一致検索"
           disabled={mode === 'view'}
-          onQueryChange={setProductQuery}
         />
       </div>
 
@@ -301,7 +381,10 @@ function LineItemRow({
           />
         </div>
         <div>
-          <div className="form-label">単価（円）</div>
+          <div className="flex items-center justify-between" style={{ marginBottom: 4 }}>
+            <div className="form-label" style={{ marginBottom: 0 }}>単価（円）</div>
+            <OcrBadge badge={priceBadge} />
+          </div>
           <input
             className="input"
             type="number"
@@ -313,7 +396,6 @@ function LineItemRow({
         </div>
       </div>
 
-      {/* Subtotal (+ expected price indicator when available) */}
       <div
         className="flex items-center justify-between"
         style={{
@@ -330,12 +412,11 @@ function LineItemRow({
             {formatYen(item.unitPrice * item.quantity)}
           </span>
         </div>
-        {expected && expected.expectedPrice !== null && (
+        {expected.expectedPrice !== null && (
           <PriceDiffBadge level={diffLevel} expected={expected} actual={item.unitPrice} />
         )}
       </div>
 
-      {/* All fields */}
       {showAllFields && (
         <div
           style={{

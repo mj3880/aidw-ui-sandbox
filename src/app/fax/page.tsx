@@ -3,6 +3,9 @@
 import { useMemo, useState } from 'react';
 import { AppShell } from '@/components/AppShell';
 import { useStore } from '@/store/store';
+import { useOcrStore } from '@/store/ocr-store';
+import { getProfile } from '@/profiles';
+import { ProfileSelector } from '../ocr-abstraction/_components/ProfileSelector';
 import { StatusFilter, type FilterValue } from './_components/StatusFilter';
 import { RequestCard } from './_components/RequestCard';
 import { List } from 'lucide-react';
@@ -21,6 +24,8 @@ const isSortKey = (v: string): v is SortKey => SORT_OPTIONS.some((o) => o.value 
 export default function FaxListPage() {
   const requests = useStore((s) => s.requests);
   const masters = useStore((s) => s.masters);
+  const currentProfileId = useOcrStore((s) => s.currentProfileId);
+  const ocrProfile = getProfile(currentProfileId);
   const [filter, setFilter] = useState<FilterValue>('all');
   const [sortKey, setSortKey] = useState<SortKey>('deliveryDate');
   const [sortOrder, setSortOrder] = useState<SortOrder>('asc');
@@ -58,8 +63,22 @@ export default function FaxListPage() {
             </h2>
             <p style={{ color: 'var(--text-muted)', fontSize: 14, margin: 0 }}>
               {filtered.length}件 / 全{requests.length}件
+              <span
+                style={{
+                  marginLeft: 10,
+                  padding: '1px 8px',
+                  borderRadius: 999,
+                  background: 'var(--bg-muted)',
+                  border: '1px solid var(--border)',
+                  fontSize: 11.5,
+                  color: 'var(--text-subtle)',
+                }}
+              >
+                プロファイル: {ocrProfile.displayName}
+              </span>
             </p>
           </div>
+          <ProfileSelector compact />
         </div>
 
         <div className="flex items-center justify-between flex-wrap gap-3">

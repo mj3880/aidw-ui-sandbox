@@ -6,6 +6,9 @@ import { toast } from 'sonner';
 import { ChevronLeft } from 'lucide-react';
 import { AppShell } from '@/components/AppShell';
 import { useStore } from '@/store/store';
+import { useOcrStore } from '@/store/ocr-store';
+import { getProfile } from '@/profiles';
+import { ProfileSelector } from '@/app/ocr-abstraction/_components/ProfileSelector';
 import { PdfPane } from './PdfPane';
 import { Step1Customer } from './Step1Customer';
 import { Step2DeliveryDest } from './Step2DeliveryDest';
@@ -48,6 +51,8 @@ export function FaxDetailClient({ requestId }: { requestId: string }) {
   const saveSnapshot = useStore((s) => s.saveRequestSnapshot);
   const auth = useStore((s) => s.auth);
   const sidebarCollapsed = useStore((s) => s.sidebarCollapsed);
+  const currentProfileId = useOcrStore((s) => s.currentProfileId);
+  const ocrProfile = getProfile(currentProfileId);
 
   const request = useMemo(
     () => requests.find((r) => r.requestId === requestId),
@@ -71,6 +76,19 @@ export function FaxDetailClient({ requestId }: { requestId: string }) {
       setDraft(toDraft(request));
     }
   }, [request, draft]);
+
+  // プロファイル切替時は編集バッファを破棄し step1 に戻す（design.md §追補）。
+  // localStorage の承認済みスナップショットは破棄しない（§4.4）。
+  useEffect(() => {
+    console.info('FaxDetailClient: profile changed, reset draft + step', {
+      requestId,
+      currentProfileId,
+    });
+    setDraft(null);
+    setStep('step1');
+    setShowModal(false);
+    // 次回 request 再参照時に再び draft が生成される
+  }, [currentProfileId, requestId]);
 
   // If request not found after data is loaded, surface error.
   useEffect(() => {
@@ -158,7 +176,21 @@ export function FaxDetailClient({ requestId }: { requestId: string }) {
             >
               <ChevronLeft className="size-3.5" /> 一覧へ戻る
             </button>
-            <div className="flex items-center gap-2.5">
+            <div className="flex items-center gap-2.5 flex-wrap">
+              <span
+                style={{
+                  padding: '1px 8px',
+                  borderRadius: 999,
+                  background: 'var(--bg-muted)',
+                  border: '1px solid var(--border)',
+                  fontSize: 11.5,
+                  color: 'var(--text-subtle)',
+                  whiteSpace: 'nowrap',
+                }}
+              >
+                プロファイル: {ocrProfile.displayName}
+              </span>
+              <ProfileSelector compact />
               {request.status === 'in_progress' && auth && request.assigneeUserId !== auth.user.userId && (
                 <button
                   type="button"
